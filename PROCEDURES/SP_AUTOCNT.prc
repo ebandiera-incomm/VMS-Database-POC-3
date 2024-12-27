@@ -1,0 +1,13 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.sp_autocnt(cnt IN NUMBER)
+AS
+PRAGMA autonomous_transaction;
+BEGIN
+DELETE FROM REJ_PANS;
+INSERT INTO REJ_PANS(pan)
+ VALUES (cnt);
+COMMIT;
+END;
+/
+
+
+show error

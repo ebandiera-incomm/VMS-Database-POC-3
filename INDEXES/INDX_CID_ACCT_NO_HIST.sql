@@ -1,0 +1,1 @@
+CREATE INDEX vmscms.indx_cid_acct_no_hist ON vmscms.cms_interest_detl_hist(cid_inst_code,cid_acct_no) TABLESPACE cms_big_idx ONLINE;

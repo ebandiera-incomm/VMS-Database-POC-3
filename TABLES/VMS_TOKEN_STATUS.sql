@@ -1,0 +1,1 @@
+alter table vmscms.VMS_TOKEN_STATUS add vts_host_txncode varchar2(10);

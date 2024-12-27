@@ -1,0 +1,6 @@
+CREATE TABLE vmscms.VMS_MERCHANT_MAST
+(
+   vmm_merchant_id     VARCHAR2 (50),
+   vmm_merchant_name   VARCHAR2 (200) NOT NULL,
+   CONSTRAINT PK_MERCHANT_MAST PRIMARY KEY (VMM_MERCHANT_ID)
+);

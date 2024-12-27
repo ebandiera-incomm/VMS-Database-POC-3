@@ -1,0 +1,22 @@
+CREATE TABLE VMSCMS.CMS_PAN_ACCT_HIST
+(
+  CPA_INST_CODE      NUMBER(3)                  NOT NULL,
+  CPA_PAN_CODE       VARCHAR2(90 BYTE)          NOT NULL,
+  CPA_MBR_NUMB       VARCHAR2(3 BYTE)           NOT NULL,
+  CPA_ACCT_ID        NUMBER(10)                 NOT NULL,
+  CPA_ACCT_POSN      NUMBER(3)                  NOT NULL,
+  CPA_INS_USER       NUMBER(5)                  NOT NULL,
+  CPA_INS_DATE       DATE                       NOT NULL,
+  CPA_LUPD_USER      NUMBER(5)                  NOT NULL,
+  CPA_LUPD_DATE      DATE                       NOT NULL,
+  CPA_PAN_CODE_ENCR  RAW(100)
+)
+TABLESPACE CMS_HIST
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+

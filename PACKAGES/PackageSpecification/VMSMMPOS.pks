@@ -1,0 +1,96 @@
+create or replace
+PACKAGE        vmscms.VMSMMPOS AS
+PROCEDURE  Personalized_card_load(p_inst_code_in                IN      NUMBER,
+                                  p_appl_code_in                IN      NUMBER,
+                                  p_userpin_in                  IN      VARCHAR2,
+                                  p_delvery_chnl_in             IN      VARCHAR2,
+                                  P_TXN_CODE_in                 IN      VARCHAR2,
+                                  P_TRAN_DATE_in                IN      VARCHAR2,
+                                  P_TRAN_TIME_in                IN      VARCHAR2,
+                                  P_RRN_in                      IN      VARCHAR2,
+                                  P_TXN_MODE_in                 IN      VARCHAR2,
+                                  P_MSG_TYPE_in                 IN      VARCHAR2,
+                                  p_tran_amt_in                 IN      NUMBER,
+								  p_optin_list                  IN      VARCHAR2, --Added for FSS-3626
+								  p_activation_code_in          IN      VARCHAR2,--Added for FSS-5103 Of 17.05R
+                                  p_business_name_in            IN      VARCHAR2,
+								  p_id_type_in                  IN      VARCHAR2,
+								  p_id_number_in                IN      VARCHAR2,
+								  p_id_expiry_date_in           IN      VARCHAR2,
+								  p_type_of_employment_in       IN      VARCHAR2,
+								  p_occupation_in               IN      VARCHAR2,
+								  p_id_province_in              IN      VARCHAR2,
+                                  p_id_country_in               IN      VARCHAR2,
+								  P_Id_Verification_Date_In     In      Varchar2,
+								  P_Tax_Res_Of_Canada_In        In      Varchar2,
+								  P_Tax_Payer_Id_Number_In      In      Varchar2,
+                 p_reason_for_no_tax_id_type_in     In      Varchar2,
+								  p_reason_for_no_tax_id_in     IN      VARCHAR2,
+								  p_jurisdiction_of_tax_res_in  IN      VARCHAR2,
+                                  p_resp_code_out        OUT     VARCHAR2,
+                                 --p_resp_message_out          OUT     VARCHAR2,
+                                  p_card_number_out             OUT     VARCHAR2,
+                                  p_card_acctnum_out            OUT     VARCHAR2,
+                                  p_proxy_number_out            OUT     VARCHAR2,
+                                   p_resp_message_out            OUT     VARCHAR2,
+                                  p_cust_id_out                 OUT     VARCHAR2,
+                                   --Added on 11-04-2018 VMS-207--END
+                                   p_ThirdPartyEnabled             In        Varchar2,
+                                  p_ThirdPartyType                In        Varchar2,
+                                  p_ThirdPartyFirstName           In        Varchar2,
+                                  p_ThirdPartyLastName            In        Varchar2,
+                                  p_ThirdPartyCorporationName     In        Varchar2,
+                                  p_ThirdPartyCorporation         In        Varchar2,
+                                  p_ThirdPartyAddress1            In        Varchar2,
+                                  p_ThirdPartyAddress2            In        Varchar2,
+                                  p_ThirdPartyCity                In        Varchar2,
+                                  p_ThirdPartyState               In        Varchar2,
+                                  p_ThirdPartyZIP                 In        Varchar2,
+                                  p_ThirdPartyCountry             In        Varchar2,
+                                  p_ThirdPartyNatureRelationship  In        Varchar2,
+                                  p_ThirdPartyBusiness            In        Varchar2,
+                                  p_ThirdPartyOccupationType      In        Varchar2,
+                                  P_Thirdpartyoccupation          In        Varchar2,
+                                  P_Thirdpartydob                 In        Varchar2,
+                                  p_member_id                     In        Varchar2,
+                                  p_shipment_method               In        NUMBER
+                                  );
+                                  
+PROCEDURE   View_profileaudit_details (
+                                  p_inst_code          IN       NUMBER,
+                                  p_msg_type           IN       VARCHAR2,
+                                  p_rrn                IN       VARCHAR2,
+                                  p_delivery_channel   IN       VARCHAR2,
+                                  p_txn_code           IN       VARCHAR2,
+                                  p_txn_mode           IN       VARCHAR2,
+                                  p_tran_date          IN       VARCHAR2,
+                                  p_tran_time          IN       VARCHAR2,
+                                  p_pan_code           IN       VARCHAR2,
+                                  p_curr_code          IN       VARCHAR2,
+                                  p_rvsl_code          IN       VARCHAR2,
+                                  p_reason_code        IN       VARCHAR2,
+                                  p_res_code           OUT      VARCHAR2,
+                                  p_res_msg            OUT      VARCHAR2 
+                                  );
+PROCEDURE        sp_mmpos_cardreload_txnstatus (
+   p_inst_code          IN       NUMBER,
+   p_msg_type           IN       VARCHAR2,
+   p_rrn                IN       VARCHAR2,
+   p_delivery_channel   IN       VARCHAR2,
+   p_txn_code           IN       VARCHAR2,
+   p_txn_mode           IN       VARCHAR2,
+   p_tran_date          IN       VARCHAR2,
+   p_tran_time          IN       VARCHAR2,
+   p_pan_code           IN       VARCHAR2,
+   p_curr_code          IN       VARCHAR2,
+   p_tran_amount        IN       VARCHAR2,
+   p_rvsl_code          IN       VARCHAR2,
+   p_orgnl_rrn          IN       VARCHAR2,
+   p_client_refno        IN       VARCHAR2,
+   p_res_code           OUT      VARCHAR2,
+   p_res_msg            OUT      VARCHAR2
+);								  
+END;
+
+/
+show error;

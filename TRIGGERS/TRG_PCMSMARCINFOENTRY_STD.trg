@@ -1,0 +1,14 @@
+CREATE OR REPLACE TRIGGER VMSCMS.TRG_PCMSMARCINFOENTRY_STD 
+BEFORE INSERT OR UPDATE ON VMSCMS.PCMS_MARC_INFO_ENTRY 
+FOR EACH ROW
+BEGIN 
+ IF INSERTING THEN 
+  :new.pmi_ins_date := sysdate; 
+  :new.pmi_lupd_date := sysdate; 
+ ELSIF UPDATING THEN 
+  :new.pmi_lupd_date := sysdate; 
+ END IF; 
+ END;
+/
+
+

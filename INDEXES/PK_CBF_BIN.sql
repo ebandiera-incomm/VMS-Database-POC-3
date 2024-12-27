@@ -1,0 +1,18 @@
+CREATE UNIQUE INDEX VMSCMS.PK_CBF_BIN ON VMSCMS.CMS_BIN_FIID
+(CBF_INST_CODE, CBF_BIN)
+LOGGING
+TABLESPACE USERS
+PCTFREE    10
+INITRANS   2
+MAXTRANS   255
+STORAGE    (
+            INITIAL          64K
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           )
+NOPARALLEL;
+
+

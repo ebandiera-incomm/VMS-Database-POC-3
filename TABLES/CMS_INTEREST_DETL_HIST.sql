@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_interest_detl_hist ADD  cid_apye_amount NUMBER(30,9);

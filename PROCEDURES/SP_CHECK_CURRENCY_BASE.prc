@@ -1,0 +1,40 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.Sp_Check_Currency_BASE
+(prm_inst_code IN NUMBER,
+ prm_currencygroup_code IN VARCHAR2,
+ prm_currency_code IN VARCHAR2,
+ prm_auth_type	   IN 		   VARCHAR2,
+ prm_err_flag  OUT VARCHAR2,
+ Prm_err_msg  OUT VARCHAR2
+)
+
+IS
+
+ V_CHECK_CNT  NUMBER(1);
+BEGIN
+ SELECT COUNT(*)
+ INTO V_CHECK_CNT
+ FROM CURRENCYCODE_GROUP
+ WHERE CUR_INST_CODE = prm_inst_code and CURRENCYCODEGROUPID = prm_currencygroup_code
+ AND CURRENCYCODE  = prm_currency_code;
+
+ IF  (v_check_cnt = 1 AND  prm_auth_type = 'A'  ) OR (  v_check_cnt = 0  AND  prm_auth_type = 'D'  ) THEN
+ 	 			 prm_err_flag := '1';
+ 				 Prm_err_msg := 'OK';
+ELSE
+				  prm_err_flag := '20';
+ 				 Prm_err_msg := 'Invalid transaction currency';
+END IF;
+
+EXCEPTION
+
+ WHEN NO_DATA_FOUND THEN
+ prm_err_flag := '20';
+ Prm_err_msg  := 'Invalid transaction currency ';
+WHEN OTHERS THEN
+ prm_err_flag := '99';
+ Prm_err_msg  := 'Error while currency validation ' || SUBSTR(SQLERRM,1,300);
+END;
+/
+
+
+show error

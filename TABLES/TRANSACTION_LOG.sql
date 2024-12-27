@@ -1,0 +1,31 @@
+CREATE TABLE VMSCMS.TRANSACTION_LOG
+(
+  DOC_NO         VARCHAR2(10 BYTE)              DEFAULT '',
+  USER_ID        VARCHAR2(20 BYTE)              DEFAULT '',
+  TIME_STAMP     DATE,
+  REF_DOC        VARCHAR2(20 BYTE)              DEFAULT '',
+  REMARKS        VARCHAR2(20 BYTE)              DEFAULT '',
+  FROM_LOC_TYPE  NUMBER(19)                     DEFAULT '0',
+  FROM_LOC_CODE  NUMBER(19)                     DEFAULT '0',
+  TO_LOC_TYPE    NUMBER(19)                     DEFAULT '0',
+  TO_LOC_CODE    NUMBER(19)                     DEFAULT '0',
+  ITEM_ID        NUMBER(19)                     DEFAULT '0',
+  QUANTITY       NUMBER(19)                     DEFAULT '0',
+  BATCH_NO       VARCHAR2(20 BYTE)              DEFAULT '',
+  ADJDATE        DATE,
+  ADJREASON      VARCHAR2(45 BYTE)              DEFAULT '',
+  ADJ_LUPD_DATE  DATE,
+  ADJ_INST_CODE  NUMBER(10),
+  ADJ_LUPD_USER  NUMBER(10),
+  ADJ_INS_DATE   DATE,
+  ADJ_INS_USER   NUMBER(10)
+)
+TABLESPACE CMS_BIG_TXN
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+

@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_preauth_trans_hist  ADD( cph_completion_fee NUMBER(20,2) default 0);

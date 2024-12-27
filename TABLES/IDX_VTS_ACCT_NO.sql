@@ -1,0 +1,1 @@
+create index vmscms.IDX_VTS_ACCT_NO on vmscms.vms_token_status_sync_dtls(vts_acct_no) online;

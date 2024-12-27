@@ -1,0 +1,17 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.SP_UPDATE_VEND_STOCK(errmsg OUT VARCHAR2)
+AS
+BEGIN --mais begin starts
+errmsg := 'OK';
+
+UPDATE CMS_CAF_INFO SET CCI_VENDOR='R',CCI_STOCK='R'
+WHERE
+CCI_INST_CODE=1
+AND CCI_PAN_CODE IN (SELECT PAN_NO ||'   ' FROM TEMP_PAN_VENDOR );
+
+EXCEPTION --excp of main begin
+ WHEN OTHERS THEN
+ errmsg := 'Main Exception -- '||SQLERRM;
+END; --main begin ends
+/
+
+

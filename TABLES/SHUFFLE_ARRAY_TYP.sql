@@ -1,0 +1,2 @@
+CREATE OR REPLACE TYPE vmscms.shuffle_array_typ IS TABLE OF VARCHAR2 (500)
+/

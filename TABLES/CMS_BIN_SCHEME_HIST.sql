@@ -1,0 +1,21 @@
+CREATE TABLE VMSCMS.CMS_BIN_SCHEME_HIST
+(
+  CBS_INST_CODE      NUMBER(3)                  NOT NULL,
+  CBS_INST_BIN       NUMBER(10)                 NOT NULL,
+  CBS_MBSCHEME_CODE  NUMBER(3)                  NOT NULL,
+  CBS_ATTACH_DATE    DATE                       NOT NULL,
+  CBS_MB_PERIOD      NUMBER(10)                 NOT NULL,
+  CBS_INS_USER       NUMBER(5)                  NOT NULL,
+  CBS_INS_DATE       DATE                       NOT NULL,
+  CBS_LUPD_DATE      DATE,
+  CBS_LUPD_USER      NUMBER(10)
+)
+TABLESPACE CMS_HIST
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+

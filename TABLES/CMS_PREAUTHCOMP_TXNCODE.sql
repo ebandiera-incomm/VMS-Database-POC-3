@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_preauthcomp_txncode ADD(cpt_adjst_txncode VARCHAR2(2));

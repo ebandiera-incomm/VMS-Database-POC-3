@@ -1,0 +1,8 @@
+CREATE OR REPLACE TRIGGER VMSCMS.TRG_INVENTORY_STATUS_ID
+      BEFORE INSERT ON VMSCMS.PCMS_INVENTORYSTATUS       FOR EACH ROW
+BEGIN      --Trigger body begins
+     select SEQ_INVENTORY_STATUS_ID.nextval into :new.INVENTORY_STATUS_ID from dual;
+    END;       --Trigger body ends
+/
+
+

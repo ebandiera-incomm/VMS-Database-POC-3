@@ -1,0 +1,1 @@
+alter table vmscms.CMS_STATEMENTS_LOG add(csl_card_type number(2));

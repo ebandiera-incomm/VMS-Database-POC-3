@@ -1,0 +1,1 @@
+alter table vmscms.CMS_PRODNETWORKID_MAPPING modify (CPM_NETWORK_ID VARCHAR2(10));

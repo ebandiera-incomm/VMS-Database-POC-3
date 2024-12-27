@@ -1,0 +1,12 @@
+CREATE TABLE VMSCMS.VMS_CONFIG_QUERY
+  (
+    VCQ_INST_CODE         number(3,0),
+    VCQ_QUERY_ID          VARCHAR2(50 ),
+    VCQ_QUERY_VALUE       VARCHAR2(4000 ) NOT NULL ,
+    VCQ_QUERY_SELECTVALUE VARCHAR2(2000 ) NOT NULL ,
+    VCQ_INS_USER          NUMBER(5,0),
+    VCQ_INS_DATE DATE NOT NULL ,
+    VCQ_LUPD_USER NUMBER(5,0),
+    VCQ_LUPD_DATE date not null ,
+    constraint PK_QUERY_ID  primary key  (VCQ_QUERY_ID)  
+  );

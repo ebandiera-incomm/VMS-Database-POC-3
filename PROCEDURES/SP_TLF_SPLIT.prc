@@ -1,0 +1,46 @@
+CREATE OR REPLACE PROCEDURE VMSCMS."SP_TLF_SPLIT" (errmsg	OUT		VARCHAR2)
+AS
+v_rpt_mer_fiid				VARCHAR2(4)	:= 'ECOM';
+v_rpt_rcv_inst_id_num		VARCHAR2(6)	:= '504642';
+v_RPT_ACQ_INST_ID_NUM	 VARCHAR2(11)	:='10000000000'	;
+BEGIN		--main begin
+errmsg := 'OK';
+--Delete Reversal Transaction
+	DELETE FROM REC_TLF_TEMP WHERE (RTT_PAN, SUBSTR(RTT_AUTH_PPD,1,6) ,RTT_TRAN_DAT,RTT_SEQ_NUM)
+			IN (SELECT  I.RTT_PAN,SUBSTR(I.RTT_AUTH_PPD,1,6) ,I.RTT_TRAN_DAT , I.RTT_SEQ_NUM
+			FROM REC_TLF_TEMP I WHERE I.RTT_TYP IN ('0220','0420') );
+-- Added By AJit on date 29-Apr-03
+	IF errmsg = 'OK' THEN
+		BEGIN		--begin 1
+			INSERT INTO CMS_PAN_TRANS_ATM(
+				CPT_INST_CODE	,CPT_ID_COL      ,CPT_AUTH_CODE		,CPT_ARN_CODE           ,CPT_MESG_TYPE		,
+				CPT_TRANS_TYPE  ,CPT_TRANS_CODE	 ,CPT_REC_TYP		,CPT_TRANS_DATE		,
+				CPT_TRANS_TIME	,
+				CPT_TRANS_AMT	,
+				CPT_ACQ_BANK	,CPT_TERM_ID	 ,CPT_MCC_CODE		,CPT_MERC_ID		,
+				CPT_MBR_NUMB	,CPT_ACCT_NO	 ,CPT_PAN_CODE		,CPT_LOYL_CALC          ,CPT_LOYL_CALCDATE	,
+				CPT_INS_USER    ,CPT_LUPD_USER
+				)
+			SELECT
+				1		,0		,RTT_AUTH_PPD		,NULL			,RTT_TYP		,
+				0		,RTT_T_CDE	,'01'			,TO_DATE(RTT_TRAN_DAT ,'YYMMDD')		,
+				fn_conv_char_to_date(RTT_TRAN_DAT,RTT_TRAN_TIM  )	,
+				TO_NUMBER(RTT_AMT1)/100		,
+				' '		,SUBSTR(RTT_TERM_ID,1,10),' '		,' '			,
+				RTT_MBR_NUM	,RTT_FROM_ACCT	,RTT_PAN		,'N'			,NULL			,
+				'1'		,'1'
+			FROM REC_TLF_TEMP
+			WHERE  RTT_BRCH_ID = 'ICIC' AND RTT_RCV_INST_ID_NUM LIKE '0504642%'
+			AND RTT_T_CDE = '10' AND (RTT_RESP_BYTE1||RTT_RESP_BYTE2) IN ('000','001');
+		EXCEPTION	--excp of begin
+			WHEN OTHERS THEN
+			errmsg := 'Excp 1--'||SQLERRM;
+		END;		--end of begin 1
+	END IF;
+EXCEPTION	--excp of main
+WHEN OTHERS THEN
+errmsg := 'Main Excp --'||SQLERRM;
+END;		--end of main;
+/
+
+

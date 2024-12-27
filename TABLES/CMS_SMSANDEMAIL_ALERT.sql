@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_smsandemail_alert ADD (csa_deppending_flag CHAR(1),csa_depaccepted_flag CHAR(1),csa_deprejected_flag CHAR(1));

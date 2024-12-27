@@ -1,0 +1,1 @@
+alter table vmscms.CMS_SHFL_CNTRL modify CSC_SHFL_CNTRL number(20,0);

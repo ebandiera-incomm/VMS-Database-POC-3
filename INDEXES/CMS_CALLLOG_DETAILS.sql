@@ -1,0 +1,1 @@
+CREATE INDEX vmscms.idx_calllog_dtls_pan ON vmscms.cms_calllog_details(ccd_inst_code,ccd_pan_code)TABLESPACE cms_big_idx ONLINE;

@@ -1,0 +1,17 @@
+CREATE OR REPLACE TRIGGER VMSCMS.cms_preauthcomp_txncode
+   BEFORE INSERT OR UPDATE
+   ON VMSCMS.CMS_PREAUTHCOMP_TXNCODE    FOR EACH ROW
+BEGIN
+   IF INSERTING
+   THEN
+      :NEW.cpt_lupd_date := SYSDATE;
+      :NEW.cpt_ins_date := SYSDATE;
+   ELSIF UPDATING
+   THEN
+      :NEW.cpt_lupd_date := SYSDATE;
+   END IF;
+END;
+/
+SHOW ERRORS;
+
+

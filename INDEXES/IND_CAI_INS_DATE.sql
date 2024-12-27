@@ -1,0 +1,18 @@
+CREATE INDEX VMSCMS.IND_CAI_INS_DATE ON VMSCMS.CMS_AUDIT_INFO
+(TRUNC("CAI_INS_DATE"))
+LOGGING
+TABLESPACE USERS
+PCTFREE    10
+INITRANS   2
+MAXTRANS   255
+STORAGE    (
+            INITIAL          27M
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           )
+NOPARALLEL;
+
+

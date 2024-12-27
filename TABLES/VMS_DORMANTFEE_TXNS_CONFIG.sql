@@ -1,0 +1,29 @@
+CREATE TABLE vmscms.vms_dormantfee_txns_config_ebr
+(
+ vdt_prod_code      VARCHAR2(20) NOT NULL,
+ vdt_card_type      NUMBER(2) NOT NULL,
+ vdt_delivery_chnnl VARCHAR2(2) NOT NULL,
+ vdt_txn_code       VARCHAR2(2) NOT NULL,
+ vdt_is_active      NUMBER DEFAULT 1,
+ vdt_ins_user       NUMBER(10),
+ vdt_ins_date       DATE DEFAULT SYSDATE,
+ vdt_lupd_user      NUMBER(10),
+ vdt_lupd_date      DATE DEFAULT SYSDATE,
+ CONSTRAINT pk_dormantfee_txns_config PRIMARY KEY(vdt_prod_code,vdt_card_type,vdt_delivery_chnnl,vdt_txn_code)
+);
+
+DECLARE
+V_ERR_MSG  VARCHAR2(1000);
+BEGIN
+	VMSCMS.SP_CREATE_EDITIONING_VIEW('VMS_DORMANTFEE_TXNS_CONFIG','VMS_DORMANTFEE_TXNS_CONFIG_EBR',V_ERR_MSG);
+
+	IF V_ERR_MSG <> 'OK' THEN			 
+		DBMS_OUTPUT.PUT_LINE(V_ERR_MSG);		
+	END IF;	
+EXCEPTION
+	WHEN OTHERS THEN
+		DBMS_OUTPUT.PUT_LINE('ERROR WHILE CALLING SP_CREATE_EDITIONING_VIEW PROCEDURE '|| SUBSTR(SQLERRM,1,200));
+END;
+/
+
+GRANT DELETE, INSERT, SELECT, UPDATE ON VMSCMS.VMS_DORMANTFEE_TXNS_CONFIG TO APP_VMS_ROLE;

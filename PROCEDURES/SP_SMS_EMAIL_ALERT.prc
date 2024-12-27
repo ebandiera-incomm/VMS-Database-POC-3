@@ -1,0 +1,1441 @@
+set define off;
+CREATE OR REPLACE PROCEDURE VMSCMS.SP_SMS_EMAIL_ALERT(P_INSTCODE         IN NUMBER,
+									  P_RRN              IN VARCHAR2,
+									  P_TERMINALID       IN VARCHAR2,
+									  P_STAN             IN VARCHAR2,
+									  P_TRANDATE         IN VARCHAR2,
+									  P_TRANTIME         IN VARCHAR2,
+									  P_ACCTNO           IN VARCHAR2,
+									  P_CURRCODE         IN VARCHAR2,
+									  P_MSG_TYPE         IN VARCHAR2,
+									  P_TXN_CODE         IN VARCHAR2,
+									  P_TXN_MODE         IN VARCHAR2,
+									  P_DELIVERY_CHANNEL IN VARCHAR2,
+									  P_MBR_NUMB         IN VARCHAR2,
+									  P_RVSL_CODE        IN VARCHAR2,
+									  P_CELLPHONENO      IN VARCHAR2,
+									  P_CELLPHONECARRIER IN VARCHAR2,
+									  P_CHANGEBALALERT   IN VARCHAR2,
+									  P_LOWBALALERT      IN VARCHAR2,
+									  P_USERCHANGEALERT  IN VARCHAR2,
+									  P_PINCHANGEALERT   IN VARCHAR2,
+									  P_MISCALERT        IN VARCHAR2,
+									  P_EMAILID1         IN VARCHAR2,
+									  P_EMAILID2         IN VARCHAR2,
+									  P_CARDSTATUSCHG    IN VARCHAR2,
+									  P_IPADDRESS        IN VARCHAR2,
+									  P_RESP_CODE        OUT VARCHAR2,
+									  P_ERRMSG           OUT VARCHAR2) AS
+/*************************************************
+    * Modified By      :  Srinivasu.k
+     * Modified Date    :  07-Apr-2012
+     * Modified Reason  :  Added cardstatus column in transactionlog insert statement
+     * Reviewer         :  Saravanakumar
+     * Reviewed Date    :  11_Apr-2012
+     * Build Number     :  RI0005_B0003
+
+      * Modified By      : UBAIDUR RAHMAN H
+    * Modified Date    : 16-JAN-2018
+    * Purpose          : CURRENCY CODE CHANGES FROM INST LEVEL TO BIN LEVEL.
+    * Reviewer         : Vini
+    * Release Number   : VMSGPRHOST18.1
+
+     * Modified By      : UBAIDUR RAHMAN.H
+     * Modified Date    : 25-JAN-2018
+     * Purpose          : VMS-162 (encryption changes)
+     * Reviewer         : Vini.P
+     * Release Number   : VMSGPRHOST18.01
+     
+    * Modified By      : venkat Singamaneni
+    * Modified Date    : 3-18-2022
+    * Purpose          : Archival changes.
+     * Reviewer         : Saravana Kumar A
+    * Release Number   : VMSGPRHOST60 for VMS-5733/FSP-991
+ *************************************************/
+ V_CAP_PROD_CATG   CMS_APPL_PAN.CAP_PROD_CATG%TYPE;
+  V_CAP_CARD_STAT   CMS_APPL_PAN.CAP_CARD_STAT%TYPE;
+  V_CAP_CAFGEN_FLAG CMS_APPL_PAN.CAP_CAFGEN_FLAG%TYPE;
+  V_FIRSTTIME_TOPUP CMS_APPL_PAN.CAP_FIRSTTIME_TOPUP%TYPE;
+  V_ERRMSG          VARCHAR2(300);
+  V_CURRCODE        VARCHAR2(3);
+  V_APPL_CODE       CMS_APPL_MAST.CAM_APPL_CODE%TYPE;
+  V_RESPCODE        VARCHAR2(5);
+  V_RESPMSG         VARCHAR2(500);
+  V_AUTHMSG         VARCHAR2(500);
+  V_CAPTURE_DATE    DATE;
+  V_MBRNUMB         CMS_APPL_PAN.CAP_MBR_NUMB%TYPE;
+  V_TXN_CODE        CMS_FUNC_MAST.CFM_TXN_CODE%TYPE;
+  V_TXN_MODE        CMS_FUNC_MAST.CFM_TXN_MODE%TYPE;
+  V_DEL_CHANNEL     CMS_FUNC_MAST.CFM_DELIVERY_CHANNEL%TYPE;
+  V_TXN_TYPE        CMS_FUNC_MAST.CFM_TXN_TYPE%TYPE;
+  V_INIL_AUTHID     TRANSACTIONLOG.AUTH_ID%TYPE;
+  EXP_MAIN_REJECT_RECORD EXCEPTION;
+  EXP_AUTH_REJECT_RECORD EXCEPTION;
+  V_HASH_PAN        CMS_APPL_PAN.CAP_PAN_CODE%TYPE;
+  V_ENCR_PAN        CMS_APPL_PAN.CAP_PAN_CODE_ENCR%TYPE;
+  V_RRN_COUNT       NUMBER;
+  V_DELCHANNEL_CODE VARCHAR2(2);
+  V_BASE_CURR       CMS_BIN_PARAM.CBP_PARAM_VALUE%TYPE;
+  V_TRAN_DATE       DATE;
+  V_ACCT_BALANCE    NUMBER;
+  V_LEDGER_BALANCE  NUMBER;
+  V_BUSINESS_DATE   VARCHAR2(8);
+  V_BUSINESS_TIME   VARCHAR2(12);
+  V_CUTOFF_TIME     VARCHAR2(5);
+  V_CUST_CODE       CMS_CUST_MAST.CCM_CUST_CODE%TYPE;
+  V_AGE_CHECK       DATE;
+  EXP_REJECT_RECORD EXCEPTION;
+--  V_MMPOS_USAGEAMNT    CMS_TRANSLIMIT_CHECK.CTC_MMPOSUSAGE_AMT%TYPE;
+--  V_MMPOS_USAGELIMIT   CMS_TRANSLIMIT_CHECK.CTC_MMPOSUSAGE_LIMIT%TYPE;
+  V_BUSINESS_DATE_TRAN DATE;
+  V_PROXUNUMBER        CMS_APPL_PAN.CAP_PROXY_NUMBER%TYPE;
+  V_ACCT_NUMBER        CMS_APPL_PAN.CAP_ACCT_NO%TYPE;
+  V_PROD_CODE          CMS_APPL_PAN.cap_prod_code%TYPE;
+  V_CARD_TYPE          CMS_APPL_PAN.cap_card_type%TYPE;
+  v_Retperiod  date; --Added for VMS-5733/FSP-991
+  v_Retdate  date; --Added for VMS-5733/FSP-991
+BEGIN
+
+  P_ERRMSG := 'OK';
+  --SN CREATE HASH PAN
+  BEGIN
+    V_HASH_PAN := GETHASH(P_ACCTNO);
+    DBMS_OUTPUT.PUT_LINE('AFTER INSERT IN TRANSACTIONLOG' || V_HASH_PAN);
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_ERRMSG := 'Error while converting pan ' || SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_MAIN_REJECT_RECORD;
+  END;
+  --EN CREATE HASH PAN
+
+  --SN create encr pan
+  BEGIN
+    V_ENCR_PAN := FN_EMAPS_MAIN(P_ACCTNO);
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESPCODE := '12';
+	 V_ERRMSG   := 'Error while converting pan ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_MAIN_REJECT_RECORD;
+  END;
+  --EN create encr pan
+
+  --Sn Transaction Date Check
+
+  BEGIN
+
+    V_TRAN_DATE := TO_DATE(SUBSTR(TRIM(P_TRANDATE), 1, 8), 'yyyymmdd');
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESPCODE := '45'; -- Server Declined -220509
+	 V_ERRMSG   := 'Problem while converting transaction date ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_MAIN_REJECT_RECORD;
+  END;
+  --En Transaction Date Check
+
+  --Sn Transaction Time Check
+  BEGIN
+
+    V_TRAN_DATE := TO_DATE(SUBSTR(TRIM(P_TRANDATE), 1, 8) || ' ' ||
+					  SUBSTR(TRIM(P_TRANTIME), 1, 10),
+					  'yyyymmdd hh24:mi:ss');
+
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESPCODE := '32'; -- Server Declined -220509
+	 V_ERRMSG   := 'Problem while converting transaction Time ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_MAIN_REJECT_RECORD;
+  END;
+  --En Transaction Time Check
+
+  BEGIN
+          SELECT CAP_CARD_STAT,
+		 CAP_PROD_CATG,
+		 CAP_CAFGEN_FLAG,
+		 CAP_APPL_CODE,
+		 CAP_FIRSTTIME_TOPUP,
+		 CAP_MBR_NUMB,
+		 CAP_CUST_CODE,
+		 CAP_PROXY_NUMBER,
+		 CAP_ACCT_NO,
+                 cap_prod_code,
+                 cap_card_type
+	 INTO V_CAP_CARD_STAT,
+		 V_CAP_PROD_CATG,
+		 V_CAP_CAFGEN_FLAG,
+		 V_APPL_CODE,
+		 V_FIRSTTIME_TOPUP,
+		 V_MBRNUMB,
+		 V_CUST_CODE,
+		 V_PROXUNUMBER,
+		 V_ACCT_NUMBER,
+                 V_PROD_CODE,
+                 V_CARD_TYPE
+	 FROM CMS_APPL_PAN
+  	 WHERE CAP_INST_CODE = P_INSTCODE AND CAP_PAN_CODE = V_HASH_PAN;
+
+  EXCEPTION
+    WHEN EXP_MAIN_REJECT_RECORD THEN
+	 RAISE;
+    WHEN NO_DATA_FOUND THEN
+	 V_ERRMSG := 'Invalid Card number ' || P_ACCTNO;
+	 RAISE EXP_MAIN_REJECT_RECORD;
+    WHEN OTHERS THEN
+	 V_ERRMSG := 'Error while selecting card number ' || P_ACCTNO;
+	 RAISE EXP_MAIN_REJECT_RECORD;
+
+  END;
+
+  BEGIN
+
+    SELECT CDM_CHANNEL_CODE
+	 INTO V_DELCHANNEL_CODE
+	 FROM CMS_DELCHANNEL_MAST
+	WHERE CDM_CHANNEL_DESC = 'MMPOS' AND CDM_INST_CODE = P_INSTCODE;
+
+    IF V_DELCHANNEL_CODE = P_DELIVERY_CHANNEL THEN
+
+	 BEGIN
+--	   SELECT CIP_PARAM_VALUE
+--		INTO V_BASE_CURR
+--		FROM CMS_INST_PARAM
+--	    WHERE CIP_INST_CODE = P_INSTCODE AND CIP_PARAM_KEY = 'CURRENCY';
+
+          SELECT TRIM (cbp_param_value)
+	    INTO v_base_curr
+	  FROM cms_bin_param WHERE cbp_param_name = 'Currency'
+	  AND cbp_inst_code= p_instcode  AND cbp_profile_code =
+	  (select  cpc_profile_code from cms_prod_cattype
+	  where cpc_prod_code = V_PROD_CODE
+	  and cpc_card_type = V_CARD_TYPE  and cpc_inst_code=p_instcode);
+
+		   IF V_BASE_CURR IS NULL THEN
+		V_RESPCODE := '21';
+		V_ERRMSG   := 'Base currency cannot be null ';
+		RAISE EXP_MAIN_REJECT_RECORD;
+	   END IF;
+	 EXCEPTION
+	   WHEN NO_DATA_FOUND THEN
+		V_RESPCODE := '21';
+		V_ERRMSG   := 'Base currency is not defined for the BIN PROFILE ';
+		RAISE EXP_MAIN_REJECT_RECORD;
+	   WHEN OTHERS THEN
+		V_RESPCODE := '21';
+		V_ERRMSG   := 'Error while selecting base currency for bin  ' ||
+				    SUBSTR(SQLERRM, 1, 200);
+		RAISE EXP_MAIN_REJECT_RECORD;
+	 END;
+
+	 V_CURRCODE := V_BASE_CURR;
+
+    ELSE
+	 V_CURRCODE := P_CURRCODE;
+    END IF;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_ERRMSG := 'Error while selecting the Delivery Channel of MMPOS  ' ||
+			   SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_MAIN_REJECT_RECORD;
+
+  END;
+
+  --Sn Duplicate RRN Check.IF duplicate RRN log the txn and return
+
+  BEGIN
+
+--Added for VMS-5733/FSP-991
+       select (add_months(trunc(sysdate,'MM'),'-'||RETENTION_PERIOD))
+       INTO   v_Retperiod 
+       FROM DBA_OPERATIONS.ARCHIVE_MGMNT_CTL 
+       WHERE  OPERATION_TYPE='ARCHIVE' 
+       AND OBJECT_NAME='TRANSACTIONLOG_EBR';
+       
+       v_Retdate := TO_DATE(SUBSTR(TRIM(P_TRANDATE), 1, 8), 'yyyymmdd');
+
+IF (v_Retdate>v_Retperiod)
+    THEN
+    SELECT TO_CHAR(SYSDATE, 'yyyymmdd') INTO V_BUSINESS_DATE FROM DUAL;
+    SELECT COUNT(1)
+	 INTO V_RRN_COUNT
+	 FROM TRANSACTIONLOG
+	WHERE INSTCODE = P_INSTCODE AND RRN = P_RRN AND
+		 BUSINESS_DATE = P_TRANDATE
+            and DELIVERY_CHANNEL = P_DELIVERY_CHANNEL;--Added by ramkumar.Mk on 25 march 2012
+     ELSE
+       SELECT TO_CHAR(SYSDATE, 'yyyymmdd') INTO V_BUSINESS_DATE FROM DUAL;
+    SELECT COUNT(1)
+	 INTO V_RRN_COUNT
+	 FROM VMSCMS_HISTORY.TRANSACTIONLOG_HIST  --Added for VMS-5733/FSP-991
+	WHERE INSTCODE = P_INSTCODE AND RRN = P_RRN AND
+		 BUSINESS_DATE = P_TRANDATE
+            and DELIVERY_CHANNEL = P_DELIVERY_CHANNEL;     
+END IF;       
+
+    IF V_RRN_COUNT > 0 THEN
+	 V_RESPCODE := '22';
+	 V_ERRMSG   := 'Duplicate RRN from the Treminal  on ' || P_TRANDATE;
+	 RAISE EXP_MAIN_REJECT_RECORD;
+
+    END IF; 
+
+  END;
+
+  --En Duplicate RRN Check
+
+
+  BEGIN
+    IF V_CAP_CARD_STAT = '4' THEN
+	 V_RESPCODE := '14';
+	 V_ERRMSG   := 'Card Restricted';
+	 RAISE EXP_MAIN_REJECT_RECORD;
+    END IF;
+  END;
+  BEGIN
+    IF V_CAP_CARD_STAT = '2' THEN
+	 V_RESPCODE := '41';
+	 V_ERRMSG   := 'Lost Card';
+	 RAISE EXP_MAIN_REJECT_RECORD;
+    END IF;
+  END;
+  BEGIN
+    IF V_CAP_CARD_STAT = '9' THEN
+	 V_RESPCODE := '46';
+	 V_ERRMSG   := 'Closed Card';
+	 RAISE EXP_MAIN_REJECT_RECORD;
+    END IF;
+  END;
+  BEGIN
+    IF V_CAP_CARD_STAT = '0' THEN
+	 V_RESPCODE := '10';
+	 V_ERRMSG   := 'Inactive Card';
+	 RAISE EXP_MAIN_REJECT_RECORD;
+    END IF;
+  END;
+  BEGIN
+    IF P_DELIVERY_CHANNEL = '10' AND P_TXN_CODE = '13' THEN
+	 UPDATE CMS_SMSEMAIL_ALERT
+	    SET CSA_CELLPHONECARRIER = P_CELLPHONECARRIER,
+		   CSA_SMSBALCHG_FLAG   = P_CHANGEBALALERT,
+		   CSA_SMSLOWBAL_FLAG   = P_LOWBALALERT,
+		   CSA_SMSUSERCHG_FLAG  = P_USERCHANGEALERT,
+		   CSA_SMSPINCHG_FLAG   = P_PINCHANGEALERT,
+		   CSA_SMSMISC_FLAG     = P_MISCALERT,
+		   CSA_LUPD_USER        = 1,
+		   CSA_LUPD_DATE        = SYSDATE
+	  WHERE CSA_PAN_CODE = V_HASH_PAN AND CSA_INST_CODE = P_INSTCODE;
+    END IF;
+    IF P_DELIVERY_CHANNEL = '10' AND P_TXN_CODE = '14' THEN
+	 UPDATE CMS_SMSEMAIL_ALERT
+	    SET CSA_MAILBALCHG_FLAG        = P_CHANGEBALALERT,
+		   CSA_MAILLOWBAL_FLAG        = P_LOWBALALERT,
+		   CSA_MAILUSERCHG_FLAG       = P_USERCHANGEALERT,
+		   CSA_MAILPINCHG_FLAG        = P_PINCHANGEALERT,
+		   CSA_MAILCARDSTATUSCHG_FLAG = P_CARDSTATUSCHG,
+		   CSA_MAILMISC_FLAG          = P_MISCALERT,
+		   CSA_LUPD_USER              = 1,
+		   CSA_LUPD_DATE              = SYSDATE
+	  WHERE CSA_PAN_CODE = V_HASH_PAN AND CSA_INST_CODE = P_INSTCODE;
+    END IF;
+
+--    IF P_DELIVERY_CHANNEL = '10' AND P_TXN_CODE = '13' THEN
+--	 UPDATE CMS_CUST_MAST
+--	    SET CCM_MOBL_ONE = P_CELLPHONENO
+--	  WHERE CCM_CUST_CODE = V_CUST_CODE AND CCM_INST_CODE = P_INSTCODE;
+--   END IF;
+
+--    IF P_DELIVERY_CHANNEL = '10' AND P_TXN_CODE = '14' THEN
+--	 UPDATE CMS_CUST_MAST
+--	    SET CCM_EMAIL_ONE = P_EMAILID1,
+--		   CCM_EMAIL_TWO = NVL(P_EMAILID2, ' ')
+--	  WHERE CCM_CUST_CODE = V_CUST_CODE AND CCM_INST_CODE = P_INSTCODE;
+--    END IF;
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESPCODE := '21';
+	 V_ERRMSG   := 'ERROR IN SMSEMAIL ALERT UPDATE ' ||
+				SUBSTR(SQLERRM, 1, 300);
+	 RAISE EXP_MAIN_REJECT_RECORD;
+  END;
+
+  BEGIN
+    SP_AUTHORIZE_TXN_CMS_AUTH(P_INSTCODE,
+						P_MSG_TYPE,
+						P_RRN,
+						P_DELIVERY_CHANNEL,
+						P_TERMINALID,
+						P_TXN_CODE,
+						P_TXN_MODE,
+						P_TRANDATE,
+						P_TRANTIME,
+						P_ACCTNO,
+						NULL,
+						0,
+						NULL,
+						NULL,
+						NULL,
+						V_CURRCODE,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						NULL,
+						P_STAN, -- P_stan
+						P_MBR_NUMB, --Ins User
+						P_RVSL_CODE, --INS Date
+						NULL,
+						V_INIL_AUTHID,
+						V_RESPCODE,
+						V_RESPMSG,
+						V_CAPTURE_DATE);
+
+    IF V_RESPCODE <> '00' AND V_RESPMSG <> 'OK' THEN
+	 V_ERRMSG := V_RESPMSG;
+	 RAISE EXP_AUTH_REJECT_RECORD;
+    END IF;
+    IF V_RESPCODE <> '00' THEN
+	 BEGIN
+	   P_ERRMSG    := ' ';
+	   P_RESP_CODE := V_RESPCODE;
+	   -- Assign the response code to the out parameter
+
+	   SELECT CMS_ISO_RESPCDE
+		INTO P_RESP_CODE
+		FROM CMS_RESPONSE_MAST
+	    WHERE CMS_INST_CODE = P_INSTCODE AND
+			CMS_DELIVERY_CHANNEL = P_DELIVERY_CHANNEL AND
+			CMS_RESPONSE_ID = V_RESPCODE;
+	 EXCEPTION
+	   WHEN OTHERS THEN
+		P_ERRMSG    := 'Problem while selecting data from response master ' ||
+					  V_RESPCODE || SUBSTR(SQLERRM, 1, 300);
+		P_RESP_CODE := '89';
+		---ISO MESSAGE FOR DATABASE ERROR Server Declined
+		ROLLBACK;
+
+	 END;
+    ELSE
+	 P_RESP_CODE := V_RESPCODE;
+    END IF;
+
+    --En select response code and insert record into txn log dtl
+
+/*    ---Sn Updation of Usage limit and amount
+    BEGIN
+	 SELECT CTC_MMPOSUSAGE_AMT, CTC_MMPOSUSAGE_LIMIT, CTC_BUSINESS_DATE
+	   INTO V_MMPOS_USAGEAMNT, V_MMPOS_USAGELIMIT, V_BUSINESS_DATE_TRAN
+	   FROM CMS_TRANSLIMIT_CHECK
+	  WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+		   AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN NO_DATA_FOUND THEN
+	   V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+				  SUBSTR(SQLERRM, 1, 300);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while selecting 1 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+
+
+
+    BEGIN
+
+	 --Sn Usage limit and amount updation for MMPOS
+	 IF P_DELIVERY_CHANNEL = '04' THEN
+	   IF V_TRAN_DATE > V_BUSINESS_DATE_TRAN THEN
+		V_MMPOS_USAGELIMIT := 1;
+        BEGIN
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = V_MMPOS_USAGELIMIT,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(P_TRANDATE || '23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0
+		 WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			  AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 1 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+	   ELSE
+		V_MMPOS_USAGELIMIT := V_MMPOS_USAGELIMIT + 1;
+        BEGIN
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET
+			  CTC_MMPOSUSAGE_LIMIT = V_MMPOS_USAGELIMIT
+		 WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			  AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 2 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+	   END IF;
+	 END IF;
+	 --En Usage limit and amount updation for MMPOS
+
+    END;
+
+*/
+
+    ---En Updation of Usage limit and amount
+
+    --IF errmsg is OK then balance amount will be returned
+
+    IF P_ERRMSG = 'OK' THEN
+
+	 --Sn of Getting  the Acct Balannce
+	 BEGIN
+	   SELECT CAM_ACCT_BAL, CAM_LEDGER_BAL
+		INTO V_ACCT_BALANCE, V_LEDGER_BALANCE
+		FROM CMS_ACCT_MAST
+	    WHERE CAM_ACCT_NO =
+			(SELECT CAP_ACCT_NO
+			   FROM CMS_APPL_PAN
+			  WHERE CAP_PAN_CODE = V_HASH_PAN
+				   AND CAP_MBR_NUMB = P_MBR_NUMB AND
+				   CAP_INST_CODE = P_INSTCODE) AND
+			CAM_INST_CODE = P_INSTCODE
+		 FOR UPDATE NOWAIT;
+	 EXCEPTION
+	   WHEN NO_DATA_FOUND THEN
+		V_RESPCODE := '14'; --Ineligible Transaction
+		V_ERRMSG   := 'Invalid Card ';
+		RAISE EXP_MAIN_REJECT_RECORD;
+	   WHEN OTHERS THEN
+		V_RESPCODE := '12';
+		V_ERRMSG   := 'Error while selecting data from card Master for card number ' ||
+				    V_HASH_PAN;
+		RAISE EXP_MAIN_REJECT_RECORD;
+	 END;
+
+	 --En of Getting  the Acct Balannce
+
+	 P_ERRMSG := ' ';
+    END IF;
+    BEGIN
+    
+     IF (v_Retdate>v_Retperiod)
+    THEN
+	 UPDATE TRANSACTIONLOG
+	    SET IPADDRESS = P_IPADDRESS
+	  WHERE RRN = P_RRN AND BUSINESS_DATE = P_TRANDATE AND
+		   TXN_CODE = P_TXN_CODE AND MSGTYPE = P_MSG_TYPE AND
+		   BUSINESS_TIME = P_TRANTIME AND
+		   DELIVERY_CHANNEL = P_DELIVERY_CHANNEL;
+	ELSE
+		UPDATE VMSCMS_HISTORY.TRANSACTIONLOG_HIST --Added for VMS-5733/FSP-991
+	    SET IPADDRESS = P_IPADDRESS
+	  WHERE RRN = P_RRN AND BUSINESS_DATE = P_TRANDATE AND
+		   TXN_CODE = P_TXN_CODE AND MSGTYPE = P_MSG_TYPE AND
+		   BUSINESS_TIME = P_TRANTIME AND
+		   DELIVERY_CHANNEL = P_DELIVERY_CHANNEL;
+	END IF;	      
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   P_RESP_CODE := '69';
+	   P_ERRMSG    := 'Problem while inserting data into transaction log  dtl' ||
+					SUBSTR(SQLERRM, 1, 300);
+    END;
+  EXCEPTION
+    --<< MAIN EXCEPTION >>
+    WHEN EXP_AUTH_REJECT_RECORD THEN
+	 ROLLBACK;
+
+/*
+	 ---Sn Updation of Usage limit and amount
+	 BEGIN
+	   SELECT CTC_MMPOSUSAGE_AMT, CTC_MMPOSUSAGE_LIMIT, CTC_BUSINESS_DATE
+		INTO V_MMPOS_USAGEAMNT, V_MMPOS_USAGELIMIT, V_BUSINESS_DATE_TRAN
+		FROM CMS_TRANSLIMIT_CHECK
+	    WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			AND CTC_MBR_NUMB = P_MBR_NUMB;
+	 EXCEPTION
+	   WHEN NO_DATA_FOUND THEN
+		V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+				    SUBSTR(SQLERRM, 1, 300);
+		V_RESPCODE := '21';
+		RAISE EXP_MAIN_REJECT_RECORD;
+ 	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while selecting 2 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+
+
+	 BEGIN
+
+	   --Sn Usage limit and amount updation for MMPOS
+	   IF P_DELIVERY_CHANNEL = '04' THEN
+		IF V_TRAN_DATE > V_BUSINESS_DATE_TRAN THEN
+		  V_MMPOS_USAGELIMIT := 1;
+          BEGIN
+		  UPDATE CMS_TRANSLIMIT_CHECK
+			SET CTC_MMPOSUSAGE_AMT     = 0,
+			    CTC_MMPOSUSAGE_LIMIT   = V_MMPOS_USAGELIMIT,
+			    CTC_ATMUSAGE_AMT       = 0,
+			    CTC_ATMUSAGE_LIMIT     = 0,
+			    CTC_BUSINESS_DATE      = TO_DATE(P_TRANDATE ||
+										  '23:59:59',
+										  'yymmdd' || 'hh24:mi:ss'),
+			    CTC_PREAUTHUSAGE_LIMIT = 0,
+			    CTC_POSUSAGE_AMT       = 0,
+			    CTC_POSUSAGE_LIMIT     = 0
+		   WHERE CTC_INST_CODE = P_INSTCODE AND
+			    CTC_PAN_CODE = V_HASH_PAN
+			    AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 3 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+		ELSE
+		  V_MMPOS_USAGELIMIT := V_MMPOS_USAGELIMIT + 1;
+          BEGIN
+		  UPDATE CMS_TRANSLIMIT_CHECK
+			SET
+			    CTC_MMPOSUSAGE_LIMIT = V_MMPOS_USAGELIMIT
+		   WHERE CTC_INST_CODE = P_INSTCODE AND
+			    CTC_PAN_CODE = V_HASH_PAN
+			    AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 4 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+		END IF;
+	   END IF;
+	   --En Usage limit and amount updation for MMPOS
+
+	 END;
+
+  */
+
+	 ---En Updation of Usage limit and amount
+	 P_ERRMSG    := V_ERRMSG;
+	 P_RESP_CODE := V_RESPCODE;
+	 --Sn select response code and insert record into txn log dtl
+
+	 --Sn create a entry in txn log
+	 BEGIN
+	   INSERT INTO TRANSACTIONLOG
+		(MSGTYPE,
+		 RRN,
+		 DELIVERY_CHANNEL,
+		 TERMINAL_ID,
+		 DATE_TIME,
+		 TXN_CODE,
+		 TXN_TYPE,
+		 TXN_MODE,
+		 TXN_STATUS,
+		 RESPONSE_CODE,
+		 BUSINESS_DATE,
+		 BUSINESS_TIME,
+		 CUSTOMER_CARD_NO,
+		 TOPUP_CARD_NO,
+		 TOPUP_ACCT_NO,
+		 TOPUP_ACCT_TYPE,
+		 BANK_CODE,
+		 TOTAL_AMOUNT,
+		 CURRENCYCODE,
+		 ADDCHARGE,
+		 PRODUCTID,
+		 CATEGORYID,
+		 ATM_NAME_LOCATION,
+		 AUTH_ID,
+		 AMOUNT,
+		 PREAUTHAMOUNT,
+		 PARTIALAMOUNT,
+		 INSTCODE,
+		 CUSTOMER_CARD_NO_ENCR,
+		 TOPUP_CARD_NO_ENCR,
+		 PROXY_NUMBER,
+		 REVERSAL_CODE,
+		 CUSTOMER_ACCT_NO,
+		 ACCT_BALANCE,
+		 LEDGER_BALANCE,
+		 RESPONSE_ID,
+		 IPADDRESS,
+         CARDSTATUS--Added cardstatus insert in transactionlog by srinivasu.k
+
+         )
+	   VALUES
+		(P_MSG_TYPE,
+		 P_RRN,
+		 P_DELIVERY_CHANNEL,
+		 P_TERMINALID,
+		 TO_DATE(V_BUSINESS_DATE, 'YYYY/MM/DD'),
+		 P_TXN_CODE,
+		 '',
+		 P_TXN_MODE,
+		 DECODE(P_RESP_CODE, '00', 'C', 'F'),
+		 P_RESP_CODE,
+		 P_TRANDATE,
+		 SUBSTR(P_TRANTIME, 1, 10),
+		 V_HASH_PAN,
+		 NULL,
+		 NULL,
+		 NULL,
+		 P_INSTCODE,
+		 TRIM(TO_CHAR(0, '99999999999999999.99')),
+		 V_CURRCODE,
+		 NULL,
+		 '',
+		 '',
+		 P_TERMINALID,
+		 V_INIL_AUTHID,
+		 TRIM(TO_CHAR(0, '99999999999999999.99')),
+		 NULL,
+		 NULL,
+		 P_INSTCODE,
+		 V_ENCR_PAN,
+		 V_ENCR_PAN,
+		 V_PROXUNUMBER,
+		 P_RVSL_CODE,
+		 V_ACCT_NUMBER,
+		 V_ACCT_BALANCE,
+		 V_LEDGER_BALANCE,
+		 V_RESPCODE,
+		 P_IPADDRESS,
+         V_CAP_CARD_STAT --Added cardstatus insert in transactionlog by srinivasu.k
+         );
+
+	 EXCEPTION
+	   WHEN OTHERS THEN
+
+		P_RESP_CODE := '89';
+		P_ERRMSG    := 'Problem while inserting data into transaction log  dtl' ||
+					  SUBSTR(SQLERRM, 1, 300);
+	 END;
+	 --En create a entry in txn log
+
+	 BEGIN
+
+	   INSERT INTO CMS_TRANSACTION_LOG_DTL
+		(CTD_DELIVERY_CHANNEL,
+		 CTD_TXN_CODE,
+		 CTD_MSG_TYPE,
+		 CTD_TXN_MODE,
+		 CTD_BUSINESS_DATE,
+		 CTD_BUSINESS_TIME,
+		 CTD_CUSTOMER_CARD_NO,
+		 CTD_TXN_AMOUNT,
+		 CTD_TXN_CURR,
+		 CTD_ACTUAL_AMOUNT,
+		 CTD_FEE_AMOUNT,
+		 CTD_WAIVER_AMOUNT,
+		 CTD_SERVICETAX_AMOUNT,
+		 CTD_CESS_AMOUNT,
+		 CTD_BILL_AMOUNT,
+		 CTD_BILL_CURR,
+		 CTD_PROCESS_FLAG,
+		 CTD_PROCESS_MSG,
+		 CTD_RRN,
+		 CTD_INST_CODE,
+		 CTD_CUSTOMER_CARD_NO_ENCR,
+		 CTD_CUST_ACCT_NUMBER)
+	   VALUES
+		(P_DELIVERY_CHANNEL,
+		 P_TXN_CODE,
+		 P_MSG_TYPE,
+		 P_TXN_MODE,
+		 P_TRANDATE,
+		 P_TRANTIME,
+		 V_HASH_PAN,
+		 0,
+		 V_CURRCODE,
+		 0,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 'E',
+		 V_ERRMSG,
+		 P_RRN,
+		 P_INSTCODE,
+		 V_ENCR_PAN,
+		 V_ACCT_NUMBER);
+
+	   P_ERRMSG := V_ERRMSG;
+	   RETURN;
+	 EXCEPTION
+	   WHEN OTHERS THEN
+		V_ERRMSG      := 'Problem while inserting data into transaction log  dtl' ||
+					  SUBSTR(SQLERRM, 1, 300);
+		P_RESP_CODE := '22'; -- Server Declined
+		ROLLBACK;
+		RETURN;
+	 END;
+
+	 P_ERRMSG := V_AUTHMSG;
+
+    WHEN EXP_MAIN_REJECT_RECORD THEN
+
+	 ROLLBACK;
+	 --Sn select response code and insert record into txn log dtl
+
+	 BEGIN
+
+/*
+	   ---Sn Updation of Usage limit and amount
+	   BEGIN
+		SELECT CTC_MMPOSUSAGE_AMT,
+			  CTC_MMPOSUSAGE_LIMIT,
+			  CTC_BUSINESS_DATE
+		  INTO V_MMPOS_USAGEAMNT,
+			  V_MMPOS_USAGELIMIT,
+			  V_BUSINESS_DATE_TRAN
+		  FROM CMS_TRANSLIMIT_CHECK
+		 WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			  AND CTC_MBR_NUMB = P_MBR_NUMB;
+	   EXCEPTION
+		WHEN NO_DATA_FOUND THEN
+		  V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+					 SUBSTR(SQLERRM, 1, 300);
+		  V_RESPCODE := '21';
+		  RAISE EXP_MAIN_REJECT_RECORD;
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while selecting 3 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+
+
+	   BEGIN
+
+		--Sn Usage limit and amount updation for MMPOS
+		IF P_DELIVERY_CHANNEL = '04' THEN
+		  IF V_TRAN_DATE > V_BUSINESS_DATE_TRAN THEN
+		    V_MMPOS_USAGELIMIT := 1;
+            BEGIN
+		    UPDATE CMS_TRANSLIMIT_CHECK
+			  SET CTC_MMPOSUSAGE_AMT     = 0,
+				 CTC_MMPOSUSAGE_LIMIT   = V_MMPOS_USAGELIMIT,
+				 CTC_ATMUSAGE_AMT       = 0,
+				 CTC_ATMUSAGE_LIMIT     = 0,
+				 CTC_BUSINESS_DATE      = TO_DATE(P_TRANDATE ||
+										    '23:59:59',
+										    'yymmdd' ||
+										    'hh24:mi:ss'),
+				 CTC_PREAUTHUSAGE_LIMIT = 0,
+				 CTC_POSUSAGE_AMT       = 0,
+				 CTC_POSUSAGE_LIMIT     = 0
+			WHERE CTC_INST_CODE = P_INSTCODE AND
+				 CTC_PAN_CODE = V_HASH_PAN
+				 AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 5 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+		  ELSE
+		    V_MMPOS_USAGELIMIT := V_MMPOS_USAGELIMIT + 1;
+            BEGIN
+		    UPDATE CMS_TRANSLIMIT_CHECK
+			  SET
+				 CTC_MMPOSUSAGE_LIMIT = V_MMPOS_USAGELIMIT
+			WHERE CTC_INST_CODE = P_INSTCODE AND
+				 CTC_PAN_CODE = V_HASH_PAN
+				 AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 6 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+		  END IF;
+		END IF;
+		--En Usage limit and amount updation for MMPOS
+
+	   END;
+
+ */
+
+	   ---En Updation of Usage limit and amount
+	   P_ERRMSG    := V_ERRMSG;
+	   P_RESP_CODE := V_RESPCODE;
+	   -- Assign the response code to the out parameter
+
+	   SELECT CMS_ISO_RESPCDE
+		INTO P_RESP_CODE
+		FROM CMS_RESPONSE_MAST
+	    WHERE CMS_INST_CODE = P_INSTCODE AND
+			CMS_DELIVERY_CHANNEL = P_DELIVERY_CHANNEL AND
+			CMS_RESPONSE_ID = V_RESPCODE;
+	 EXCEPTION
+	   WHEN OTHERS THEN
+		P_ERRMSG    := 'Problem while selecting data from response master ' ||
+					  V_RESPCODE || SUBSTR(SQLERRM, 1, 300);
+		P_RESP_CODE := '89';
+		---ISO MESSAGE FOR DATABASE ERROR Server Declined
+		ROLLBACK;
+		-- RETURN;
+	 END;
+
+	 --Sn create a entry in txn log
+	 BEGIN
+	   INSERT INTO TRANSACTIONLOG
+		(MSGTYPE,
+		 RRN,
+		 DELIVERY_CHANNEL,
+		 TERMINAL_ID,
+		 DATE_TIME,
+		 TXN_CODE,
+		 TXN_TYPE,
+		 TXN_MODE,
+		 TXN_STATUS,
+		 RESPONSE_CODE,
+		 BUSINESS_DATE,
+		 BUSINESS_TIME,
+		 CUSTOMER_CARD_NO,
+		 TOPUP_CARD_NO,
+		 TOPUP_ACCT_NO,
+		 TOPUP_ACCT_TYPE,
+		 BANK_CODE,
+		 TOTAL_AMOUNT,
+		 CURRENCYCODE,
+		 ADDCHARGE,
+		 PRODUCTID,
+		 CATEGORYID,
+		 ATM_NAME_LOCATION,
+		 AUTH_ID,
+		 AMOUNT,
+		 PREAUTHAMOUNT,
+		 PARTIALAMOUNT,
+		 INSTCODE,
+		 CUSTOMER_CARD_NO_ENCR,
+		 TOPUP_CARD_NO_ENCR,
+		 PROXY_NUMBER,
+		 REVERSAL_CODE,
+		 CUSTOMER_ACCT_NO,
+		 ACCT_BALANCE,
+		 LEDGER_BALANCE,
+		 RESPONSE_ID,
+		 IPADDRESS,
+         CARDSTATUS--Added cardstatus insert in transactionlog by srinivasu.k
+         )
+	   VALUES
+		(P_MSG_TYPE,
+		 P_RRN,
+		 P_DELIVERY_CHANNEL,
+		 P_TERMINALID,
+		 TO_DATE(V_BUSINESS_DATE, 'YYYY/MM/DD'),
+		 P_TXN_CODE,
+		 V_TXN_TYPE,
+		 P_TXN_MODE,
+		 DECODE(P_RESP_CODE, '00', 'C', 'F'),
+		 P_RESP_CODE,
+		 P_TRANDATE,
+		 SUBSTR(P_TRANTIME, 1, 10),
+		 V_HASH_PAN,
+		 NULL,
+		 NULL,
+		 NULL,
+		 P_INSTCODE,
+		 TRIM(TO_CHAR(0, '99999999999999999.99')),
+		 V_CURRCODE,
+		 NULL,
+		 '',
+		 '',
+		 P_TERMINALID,
+		 V_INIL_AUTHID,
+		 TRIM(TO_CHAR(0, '99999999999999999.99')),
+		 NULL,
+		 NULL,
+		 P_INSTCODE,
+		 V_ENCR_PAN,
+		 V_ENCR_PAN,
+		 V_PROXUNUMBER,
+		 P_RVSL_CODE,
+		 V_ACCT_NUMBER,
+		 V_ACCT_BALANCE,
+		 V_LEDGER_BALANCE,
+		 V_RESPCODE,
+		 P_IPADDRESS,
+         V_CAP_CARD_STAT --Added cardstatus insert in transactionlog by srinivasu.k
+         );
+
+	 EXCEPTION
+	   WHEN OTHERS THEN
+
+		P_RESP_CODE := '89';
+		P_ERRMSG    := 'Problem while inserting data into transaction log  dtl' ||
+					  SUBSTR(SQLERRM, 1, 300);
+	 END;
+	 --En create a entry in txn log
+
+	 BEGIN
+
+	   INSERT INTO CMS_TRANSACTION_LOG_DTL
+		(CTD_DELIVERY_CHANNEL,
+		 CTD_TXN_CODE,
+		 CTD_MSG_TYPE,
+		 CTD_TXN_MODE,
+		 CTD_BUSINESS_DATE,
+		 CTD_BUSINESS_TIME,
+		 CTD_CUSTOMER_CARD_NO,
+		 CTD_TXN_AMOUNT,
+		 CTD_TXN_CURR,
+		 CTD_ACTUAL_AMOUNT,
+		 CTD_FEE_AMOUNT,
+		 CTD_WAIVER_AMOUNT,
+		 CTD_SERVICETAX_AMOUNT,
+		 CTD_CESS_AMOUNT,
+		 CTD_BILL_AMOUNT,
+		 CTD_BILL_CURR,
+		 CTD_PROCESS_FLAG,
+		 CTD_PROCESS_MSG,
+		 CTD_RRN,
+		 CTD_INST_CODE,
+		 CTD_CUSTOMER_CARD_NO_ENCR,
+		 CTD_CUST_ACCT_NUMBER)
+	   VALUES
+		(P_DELIVERY_CHANNEL,
+		 P_TXN_CODE,
+		 P_MSG_TYPE,
+		 P_TXN_MODE,
+		 P_TRANDATE,
+		 P_TRANTIME,
+		 V_HASH_PAN,
+		 0,
+		 V_CURRCODE,
+		 0,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 'E',
+		 V_ERRMSG,
+		 P_RRN,
+		 P_INSTCODE,
+		 V_ENCR_PAN,
+		 V_ACCT_NUMBER);
+
+	   P_ERRMSG := V_ERRMSG;
+	   RETURN;
+	 EXCEPTION
+	   WHEN OTHERS THEN
+		V_ERRMSG      := 'Problem while inserting data into transaction log  dtl' ||
+					  SUBSTR(SQLERRM, 1, 300);
+		P_RESP_CODE := '22'; -- Server Declined
+		ROLLBACK;
+		RETURN;
+	 END;
+
+	 P_ERRMSG := V_ERRMSG;
+    WHEN OTHERS THEN
+	 -- insert transactionlog and cms_transactio_log_dtl for exception cases
+
+	 BEGIN
+
+	   ROLLBACK;
+
+/*
+	   ---Sn Updation of Usage limit and amount
+	   BEGIN
+		SELECT CTC_MMPOSUSAGE_AMT,
+			  CTC_MMPOSUSAGE_LIMIT,
+			  CTC_BUSINESS_DATE
+		  INTO V_MMPOS_USAGEAMNT,
+			  V_MMPOS_USAGELIMIT,
+			  V_BUSINESS_DATE_TRAN
+		  FROM CMS_TRANSLIMIT_CHECK
+		 WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			  AND CTC_MBR_NUMB = P_MBR_NUMB;
+	   EXCEPTION
+		WHEN NO_DATA_FOUND THEN
+		  V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+					 SUBSTR(SQLERRM, 1, 300);
+		  V_RESPCODE := '21';
+		  RAISE EXP_MAIN_REJECT_RECORD;
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while selecting 4 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+
+
+	   BEGIN
+
+		--Sn Usage limit and amount updation for MMPOS
+		IF P_DELIVERY_CHANNEL = '04' THEN
+		  IF V_TRAN_DATE > V_BUSINESS_DATE_TRAN THEN
+		    V_MMPOS_USAGELIMIT := 1;
+            BEGIN
+		    UPDATE CMS_TRANSLIMIT_CHECK
+			  SET CTC_MMPOSUSAGE_AMT     = 0,
+				 CTC_MMPOSUSAGE_LIMIT   = V_MMPOS_USAGELIMIT,
+				 CTC_ATMUSAGE_AMT       = 0,
+				 CTC_ATMUSAGE_LIMIT     = 0,
+				 CTC_BUSINESS_DATE      = TO_DATE(P_TRANDATE ||
+										    '23:59:59',
+										    'yymmdd' ||
+										    'hh24:mi:ss'),
+				 CTC_PREAUTHUSAGE_LIMIT = 0,
+				 CTC_POSUSAGE_AMT       = 0,
+				 CTC_POSUSAGE_LIMIT     = 0
+			WHERE CTC_INST_CODE = P_INSTCODE AND
+				 CTC_PAN_CODE = V_HASH_PAN
+				 AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 7 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+		  ELSE
+		    V_MMPOS_USAGELIMIT := V_MMPOS_USAGELIMIT + 1;
+            BEGIN
+		    UPDATE CMS_TRANSLIMIT_CHECK
+			  SET
+				 CTC_MMPOSUSAGE_LIMIT = V_MMPOS_USAGELIMIT
+			WHERE CTC_INST_CODE = P_INSTCODE AND
+				 CTC_PAN_CODE = V_HASH_PAN
+				 AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ERRMSG   := 'Error while updating 8 CMS_TRANSLIMIT_CHECK' || SUBSTR(SQLERRM, 1, 200);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+		  END IF;
+		END IF;
+		--En Usage limit and amount updation for MMPOS
+
+	   END;
+
+   */
+
+	   ---En Updation of Usage limit and amount
+	   --Sn select response code and insert record into txn log dtl
+	   BEGIN
+		P_ERRMSG    := V_ERRMSG;
+		P_RESP_CODE := V_RESPCODE;
+		-- Assign the response code to the out parameter
+
+		SELECT CMS_ISO_RESPCDE
+		  INTO P_RESP_CODE
+		  FROM CMS_RESPONSE_MAST
+		 WHERE CMS_INST_CODE = P_INSTCODE AND
+			  CMS_DELIVERY_CHANNEL = P_DELIVERY_CHANNEL AND
+			  CMS_RESPONSE_ID = V_RESPCODE;
+	   EXCEPTION
+		WHEN OTHERS THEN
+		  P_ERRMSG    := 'Problem while selecting data from response master ' ||
+					    V_RESPCODE || SUBSTR(SQLERRM, 1, 300);
+		  P_RESP_CODE := '89';
+		  ---ISO MESSAGE FOR DATABASE ERROR Server Declined
+	   END;
+
+	   INSERT INTO CMS_TRANSACTION_LOG_DTL
+		(CTD_DELIVERY_CHANNEL,
+		 CTD_TXN_CODE,
+		 CTD_MSG_TYPE,
+		 CTD_TXN_MODE,
+		 CTD_BUSINESS_DATE,
+		 CTD_BUSINESS_TIME,
+		 CTD_CUSTOMER_CARD_NO,
+		 CTD_TXN_AMOUNT,
+		 CTD_TXN_CURR,
+		 CTD_ACTUAL_AMOUNT,
+		 CTD_FEE_AMOUNT,
+		 CTD_WAIVER_AMOUNT,
+		 CTD_SERVICETAX_AMOUNT,
+		 CTD_CESS_AMOUNT,
+		 CTD_BILL_AMOUNT,
+		 CTD_BILL_CURR,
+		 CTD_PROCESS_FLAG,
+		 CTD_PROCESS_MSG,
+		 CTD_RRN,
+		 CTD_INST_CODE,
+		 CTD_CUSTOMER_CARD_NO_ENCR,
+		 CTD_CUST_ACCT_NUMBER)
+	   VALUES
+		(P_DELIVERY_CHANNEL,
+		 P_TXN_CODE,
+		 P_MSG_TYPE,
+		 P_TXN_MODE,
+		 P_TRANDATE,
+		 P_TRANTIME,
+		 V_HASH_PAN,
+		 0,
+		 V_CURRCODE,
+		 0,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 NULL,
+		 'E',
+		 V_ERRMSG,
+		 P_RRN,
+		 P_INSTCODE,
+		 V_ENCR_PAN,
+		 V_ACCT_NUMBER);
+
+	   P_ERRMSG := ' Error from main ' || SUBSTR(SQLERRM, 1, 200);
+	 END;
+END;
+
+EXCEPTION
+  WHEN OTHERS THEN
+
+    -- insert transactionlog and cms_transactio_log_dtl for exception cases
+
+    ROLLBACK;
+    BEGIN
+	 SELECT CAM_ACCT_BAL, CAM_LEDGER_BAL
+	   INTO V_ACCT_BALANCE, V_LEDGER_BALANCE
+	   FROM CMS_ACCT_MAST
+	  WHERE CAM_ACCT_NO =
+		   (SELECT CAP_ACCT_NO
+			 FROM CMS_APPL_PAN
+			WHERE CAP_PAN_CODE = V_HASH_PAN AND
+				 CAP_INST_CODE = P_INSTCODE) AND
+		   CAM_INST_CODE = P_INSTCODE;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   V_ACCT_BALANCE   := 0;
+	   V_LEDGER_BALANCE := 0;
+    END;
+
+/*
+    ---Sn Updation of Usage limit and amount
+    BEGIN
+	 SELECT CTC_MMPOSUSAGE_AMT, CTC_MMPOSUSAGE_LIMIT, CTC_BUSINESS_DATE
+	   INTO V_MMPOS_USAGEAMNT, V_MMPOS_USAGELIMIT, V_BUSINESS_DATE_TRAN
+	   FROM CMS_TRANSLIMIT_CHECK
+	  WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+		   AND CTC_MBR_NUMB = P_MBR_NUMB;
+    EXCEPTION
+	 WHEN NO_DATA_FOUND THEN
+	   V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+				  SUBSTR(SQLERRM, 1, 300);
+	   V_RESPCODE := '21';
+	   RAISE EXP_MAIN_REJECT_RECORD;
+    END;
+
+
+    BEGIN
+
+	 --Sn Usage limit and amount updation for MMPOS
+	 IF P_DELIVERY_CHANNEL = '04' THEN
+	   IF V_TRAN_DATE > V_BUSINESS_DATE_TRAN THEN
+		V_MMPOS_USAGELIMIT := 1;
+
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = V_MMPOS_USAGELIMIT,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(P_TRANDATE || '23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0
+		 WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			  AND CTC_MBR_NUMB = P_MBR_NUMB;
+	   ELSE
+		V_MMPOS_USAGELIMIT := V_MMPOS_USAGELIMIT + 1;
+
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET
+			  CTC_MMPOSUSAGE_LIMIT = V_MMPOS_USAGELIMIT
+		 WHERE CTC_INST_CODE = P_INSTCODE AND CTC_PAN_CODE = V_HASH_PAN
+			  AND CTC_MBR_NUMB = P_MBR_NUMB;
+	   END IF;
+	 END IF;
+	 --En Usage limit and amount updation for MMPOS
+
+    END;
+
+ */
+
+    ---En Updation of Usage limit and amount
+
+    --Sn select response code and insert record into txn log dtl
+    BEGIN
+	 P_ERRMSG    := V_ERRMSG;
+	 P_RESP_CODE := V_RESPCODE;
+	 -- Assign the response code to the out parameter
+
+	 SELECT CMS_ISO_RESPCDE
+	   INTO P_RESP_CODE
+	   FROM CMS_RESPONSE_MAST
+	  WHERE CMS_INST_CODE = P_INSTCODE AND
+		   CMS_DELIVERY_CHANNEL = P_DELIVERY_CHANNEL AND
+		   CMS_RESPONSE_ID = V_RESPCODE;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   P_ERRMSG    := 'Problem while selecting data from response master ' ||
+					V_RESPCODE || SUBSTR(SQLERRM, 1, 300);
+	   P_RESP_CODE := '89';
+	   ---ISO MESSAGE FOR DATABASE ERROR Server Declined
+    END;
+    BEGIN
+	 INSERT INTO TRANSACTIONLOG
+	   (MSGTYPE,
+	    RRN,
+	    DELIVERY_CHANNEL,
+	    TERMINAL_ID,
+	    DATE_TIME,
+	    TXN_CODE,
+	    TXN_TYPE,
+	    TXN_MODE,
+	    TXN_STATUS,
+	    RESPONSE_CODE,
+	    BUSINESS_DATE,
+	    BUSINESS_TIME,
+	    CUSTOMER_CARD_NO,
+	    TOPUP_CARD_NO,
+	    TOPUP_ACCT_NO,
+	    TOPUP_ACCT_TYPE,
+	    BANK_CODE,
+	    TOTAL_AMOUNT,
+	    CURRENCYCODE,
+	    ADDCHARGE,
+	    PRODUCTID,
+	    CATEGORYID,
+	    ATM_NAME_LOCATION,
+	    AUTH_ID,
+	    AMOUNT,
+	    PREAUTHAMOUNT,
+	    PARTIALAMOUNT,
+	    INSTCODE,
+	    CUSTOMER_CARD_NO_ENCR,
+	    TOPUP_CARD_NO_ENCR,
+	    PROXY_NUMBER,
+	    REVERSAL_CODE,
+	    CUSTOMER_ACCT_NO,
+	    ACCT_BALANCE,
+	    LEDGER_BALANCE,
+	    RESPONSE_ID,
+	    IPADDRESS,
+        CARDSTATUS--Added cardstatus insert in transactionlog by srinivasu.k
+        )
+	 VALUES
+	   (P_MSG_TYPE,
+	    P_RRN,
+	    P_DELIVERY_CHANNEL,
+	    P_TERMINALID,
+	    TO_DATE(V_BUSINESS_DATE, 'YYYY/MM/DD'),
+	    P_TXN_CODE,
+	    '',
+	    P_TXN_MODE,
+	    DECODE(P_RESP_CODE, '00', 'C', 'F'),
+	    P_RESP_CODE,
+	    P_TRANDATE,
+	    SUBSTR(P_TRANTIME, 1, 10),
+	    V_HASH_PAN,
+	    NULL,
+	    NULL,
+	    NULL,
+	    P_INSTCODE,
+	    TRIM(TO_CHAR(0, '99999999999999999.99')),
+	    V_CURRCODE,
+	    NULL,
+	    '',
+	    '',
+	    P_TERMINALID,
+	    V_INIL_AUTHID,
+	    TRIM(TO_CHAR(0, '99999999999999999.99')),
+	    NULL,
+	    NULL,
+	    P_INSTCODE,
+	    V_ENCR_PAN,
+	    V_ENCR_PAN,
+	    V_PROXUNUMBER,
+	    P_RVSL_CODE,
+	    V_ACCT_NUMBER,
+	    V_ACCT_BALANCE,
+	    V_LEDGER_BALANCE,
+	    V_RESPCODE,
+	    P_IPADDRESS,
+        V_CAP_CARD_STAT --Added cardstatus insert in transactionlog by srinivasu.k
+        );
+
+    EXCEPTION
+	 WHEN OTHERS THEN
+
+	   P_RESP_CODE := '89';
+	   P_ERRMSG    := 'Problem while inserting data into transaction log  dtl' ||
+					SUBSTR(SQLERRM, 1, 300);
+    END;
+    INSERT INTO CMS_TRANSACTION_LOG_DTL
+	 (CTD_DELIVERY_CHANNEL,
+	  CTD_TXN_CODE,
+	  CTD_MSG_TYPE,
+	  CTD_TXN_MODE,
+	  CTD_BUSINESS_DATE,
+	  CTD_BUSINESS_TIME,
+	  CTD_CUSTOMER_CARD_NO,
+	  CTD_TXN_AMOUNT,
+	  CTD_TXN_CURR,
+	  CTD_ACTUAL_AMOUNT,
+	  CTD_FEE_AMOUNT,
+	  CTD_WAIVER_AMOUNT,
+	  CTD_SERVICETAX_AMOUNT,
+	  CTD_CESS_AMOUNT,
+	  CTD_BILL_AMOUNT,
+	  CTD_BILL_CURR,
+	  CTD_PROCESS_FLAG,
+	  CTD_PROCESS_MSG,
+	  CTD_RRN,
+	  CTD_INST_CODE,
+	  CTD_CUSTOMER_CARD_NO_ENCR,
+	  CTD_CUST_ACCT_NUMBER)
+    VALUES
+	 (P_DELIVERY_CHANNEL,
+	  P_TXN_CODE,
+	  P_MSG_TYPE,
+	  P_TXN_MODE,
+	  P_TRANDATE,
+	  P_TRANTIME,
+	  V_HASH_PAN,
+	  0,
+	  V_CURRCODE,
+	  0,
+	  NULL,
+	  NULL,
+	  NULL,
+	  NULL,
+	  NULL,
+	  NULL,
+	  'E',
+	  V_ERRMSG,
+	  P_RRN,
+	  P_INSTCODE,
+	  V_ENCR_PAN,
+	  V_ACCT_NUMBER);
+
+END;
+/
+show error

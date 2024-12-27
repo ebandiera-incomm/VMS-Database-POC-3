@@ -1,0 +1,9 @@
+CREATE OR REPLACE TRIGGER VMSCMS.TRG_GROUPDEHOT_STD  BEFORE INSERT on CMS_GROUP_DEHOTLIST_TEMP  FOR EACH ROW
+BEGIN --Trigger body begins
+ IF INSERTING THEN
+  :new.cgd_ins_date := sysdate ;
+ END IF;
+END; --Trigger body ends
+/
+
+

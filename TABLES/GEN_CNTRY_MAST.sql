@@ -1,0 +1,1 @@
+alter table VMSCMS.GEN_CNTRY_MAST add (GCM_ISO_CNTRY_CODE varchar2(3));

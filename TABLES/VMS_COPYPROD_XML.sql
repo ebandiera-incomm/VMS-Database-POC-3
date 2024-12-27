@@ -1,0 +1,2 @@
+CREATE GLOBAL TEMPORARY TABLE vmscms.vms_copyprod_xml (vcx_xml_data XMLTYPE)
+ON COMMIT PRESERVE ROWS;

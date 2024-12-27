@@ -1,0 +1,51 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.SP_CHK_DIGIT_CALC(L_TMPPAN   IN VARCHAR2,
+									 L_CHECKDIG OUT NUMBER) IS
+  CEILABLE_SUM NUMBER := 0;
+  CEILED_SUM   NUMBER;
+  TEMP_PAN     NUMBER;
+  LEN_PAN      NUMBER(3);
+  RES          NUMBER(3);
+  MULT_IND     NUMBER(1);
+  DIG_SUM      NUMBER(2);
+  DIG_LEN      NUMBER(1);
+BEGIN
+  DBMS_OUTPUT.PUT_LINE('In check digit gen logic');
+  TEMP_PAN := L_TMPPAN;
+  LEN_PAN  := LENGTH(TEMP_PAN);
+  MULT_IND := 2;
+
+  FOR I IN REVERSE 1 .. LEN_PAN LOOP
+    RES     := SUBSTR(TEMP_PAN, I, 1) * MULT_IND;
+    DIG_LEN := LENGTH(RES);
+  
+    IF DIG_LEN = 2 THEN
+	 DIG_SUM := SUBSTR(RES, 1, 1) + SUBSTR(RES, 2, 1);
+    ELSE
+	 DIG_SUM := RES;
+    END IF;
+  
+    CEILABLE_SUM := CEILABLE_SUM + DIG_SUM;
+  
+    IF MULT_IND = 2 THEN
+	 --IF 2
+	 MULT_IND := 1;
+    ELSE
+	 --Else of If 2
+	 MULT_IND := 2;
+    END IF; --End of IF 2
+  END LOOP;
+
+  CEILED_SUM := CEILABLE_SUM;
+
+  IF MOD(CEILABLE_SUM, 10) != 0 THEN
+    LOOP
+	 CEILED_SUM := CEILED_SUM + 1;
+	 EXIT WHEN MOD(CEILED_SUM, 10) = 0;
+    END LOOP;
+  END IF;
+
+  L_CHECKDIG := CEILED_SUM - CEILABLE_SUM;
+  --dbms_output.put_line('FROM LOCAL CHK GEN---->'||l_checkdig);
+END;
+/
+show error

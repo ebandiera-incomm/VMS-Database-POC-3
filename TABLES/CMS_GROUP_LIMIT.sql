@@ -1,0 +1,25 @@
+CREATE TABLE VMSCMS.CMS_GROUP_LIMIT
+(
+   cgl_inst_code        NUMBER (10) NOT NULL,
+   cgl_LMTPRFL_ID       VARCHAR2 (10) NOT NULL,
+   cgl_group_code       VARCHAR2 (10) NOT NULL,
+   Cgl_GRPLMT_HASH      VARCHAR2 (90) NOT NULL,
+   Cgl_PERTXN_MINAMNT   NUMBER (20) NOT NULL,
+   Cgl_PERTXN_MAXAMNT   NUMBER (20) NOT NULL,
+   Cgl_DMAX_TXNCNT      NUMBER (20)  NULL,
+   Cgl_DMAX_TXNAMNT     NUMBER (20)  NULL,
+   Cgl_WMAX_TXNCNT      NUMBER (20)  NULL,
+   Cgl_WMAX_TXNAMNT     NUMBER (20)  NULL,
+   Cgl_MMAX_TXNCNT      NUMBER (20)  NULL,
+   Cgl_MMAX_TXNAMNT     NUMBER (20)  NULL,
+   Cgl_YMAX_TXNCNT      NUMBER (20)  NULL,
+   Cgl_YMAX_TXNAMNT     NUMBER (20)  NULL,
+   cgl_lupd_date        DATE NULL,
+   cgl_lupd_user        NUMBER (10) NULL,
+   cgl_ins_date         DATE NOT NULL,
+   cgl_ins_user         NUMBER (10) NOT NULL
+)tablespace cms_mast;
+
+ALTER TABLE VMSCMS.CMS_GROUP_LIMIT ADD   CONSTRAINT PK_CMS_GROUP_LIMIT
+ PRIMARY KEY (cgl_inst_code, Cgl_GRPLMT_HASH );
+

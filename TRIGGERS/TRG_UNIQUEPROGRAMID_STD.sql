@@ -1,0 +1,1 @@
+alter trigger vmscms.TRG_UNIQUEPROGRAMID_STD disable;

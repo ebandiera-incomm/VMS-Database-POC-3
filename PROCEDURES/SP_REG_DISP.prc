@@ -1,0 +1,166 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.Sp_Reg_Disp  (instcode	IN		NUMBER	,
+                        uniqId   IN    NUMBER   ,
+                        idCol    IN    VARCHAR2   ,
+                        interChng IN   VARCHAR2 ,
+                        matchedFlag IN VARCHAR2 ,
+                        lupduser	IN		NUMBER	,
+                        ERRMSG        OUT             VARCHAR2)
+AS
+c_Ctf_man	VARCHAR2(3)	:= 'CTF';
+C_MDSONUS_recon  VARCHAR2(3):= 'MDS';
+TEST VARCHAR2(50);
+BEGIN
+        errmsg:= 'OK';
+
+      IF interChng = 'V' AND matchedFlag = 'M'  THEN
+   	  	 	UPDATE REC_BASE2_RECON SET RBR_UNIQ_ID = uniqId
+      		WHERE RBR_ID_COL = idCol;
+
+            INSERT INTO CHG_BASE2_RECON
+            SELECT * FROM REC_BASE2_RECON;
+      END IF;
+
+      IF interChng = 'V' AND matchedFlag = 'U'  THEN
+	  	 UPDATE REC_CTF_RECO SET RCR_UNIQ_ID = uniqId
+		 WHERE RCR_ID_COL = idCol;
+
+         INSERT INTO CHG_BASE2_RECON (
+               CBR_RECON,		   CBR_PROCESS_DATE,		   CBR_CTF_FILE,	      CBR_TRAN_CODE,
+               CBR_TCR_NUMB,	   CBR_ACQ_BUS_ID,         CBR_ACQ_REF_NUMB,	   CBR_AUTH_CHAR_IND,
+               CBR_AUTH_CODE,    CBR_BATCH_NUMB,		   CBR_CARD_ID_METHOD,	CBR_CENTER_BATCH_ID,
+               CBR_CENTRAL_PR_DATE,	CBR_COLL_ONLY_FLAG,	CBR_CRB_EXCP,        CBR_DEST_AMT,
+               CBR_DEST_CURR,		CBR_DEST_BIN,           CBR_FLOOR_LIMIT,	   CBR_INC_FILE_ID,
+               CBR_INTL_FEE_IND, CBR_MER_CAT,            CBR_MER_CITY,        CBR_MER_CNTRY,
+               CBR_MER_NAME,     CBR_MER_STATE_CODE,	   CBR_MER_ZIP_CODE,		CBR_MESS_TEXT,
+               CBR_NO_MON_TRANS,	CBR_NO_TRANS,			   CBR_PAN_NUMB,        CBR_PAN_EXTN,
+               CBR_PCAS,			CBR_POS_ENT_MODE,       CBR_POS_TERM_CAP,	   CBR_PURCH_DATE,
+               CBR_REASON_CODE,  CBR_REIMB_ATTRIB,	      CBR_REQ_PAYMENT,		CBR_SETTL_DATE,
+               CBR_SETTL_FLAG,   CBR_SOURCE_AMT,	      CBR_SOURCE_BIN,      CBR_SOURCE_CURR,
+               CBR_TRAN_ID,      CBR_USAGE_CODE,         CBR_CHGBK_REF_NUMB,	CBR_DOC_IND,
+               CBR_CTF_TERM_ID,  CBR_MAIL_TEL_ECOM_IND,  CBR_LOYL_FLAG,		   CBR_IBR_GEN,
+               CBR_ID_COL,		   CBR_NATIONAL_REIMB_FEE, CBR_ATM_ACCT_SELECTION,CBR_MAN_TYP,
+               CBR_TYPE_FLAG,		CBR_MAN_REC,            CBR_UNIQ_ID, 		CBR_TRAN_DAT
+               )
+            SELECT
+               0  ,              SYSDATE,             	C.RCR_CTF_FILE,      C.RCR_TRAN_CODE,
+               C.RCR_TCR_NUMB,   C.RCR_ACQ_BUS_ID,       C.RCR_ACQ_REF_NUMB,  C.RCR_AUTH_CHAR_IND,
+               C.RCR_AUTH_CODE,  C.RCR_BATCH_NUMB,       C.RCR_CARD_ID_METHOD,C.RCR_CENTER_BATCH_ID,
+               C.RCR_CENTRAL_PR_DATE,C.RCR_COLL_ONLY_FLAG,C.RCR_CRB_EXCP,     C.RCR_DEST_AMT,
+               C.RCR_DEST_CURR,  C.RCR_DEST_BIN,         C.RCR_FLOOR_LIMIT,	C.RCR_INC_FILE_ID,
+               C.RCR_INTL_FEE_IND,C.RCR_MER_CAT,         C.RCR_MER_CITY,      C.RCR_MER_CNTRY,
+               C.RCR_MER_NAME, 	C.RCR_MER_STATE_CODE,   C.RCR_MER_ZIP_CODE,  C.RCR_MESS_TEXT,
+               C.RCR_NO_MON_TRANS,C.RCR_NO_TRANS,  		C.RCR_PAN_NUMB,      C.RCR_PAN_EXTN,
+               C.RCR_PCAS,       C.RCR_POS_ENT_MODE,     C.RCR_POS_TERM_CAP,  C.RCR_PURCH_DATE,
+               C.RCR_REASON_CODE,C.RCR_REIMB_ATTRIB,     C.RCR_REQ_PAYMENT,   C.RCR_SETTL_DATE,
+               C.RCR_SETTL_FLAG,	C.RCR_SOURCE_AMT,       C.RCR_SOURCE_BIN,    C.RCR_SOURCE_CURR,
+               C.RCR_TRAN_ID,    C.RCR_USAGE_CODE,       C.RCR_CHGBK_REF_NUMB,C.RCR_DOC_IND,
+               C.RCR_TERM_ID,    C.RCR_MAIL_TEL_ECOM_IND,'N',                 0,
+               C.RCR_ID_COL,		C.RCR_NATIONAL_REIMB_FEE,C.RCR_ATM_ACCT_SELECTION, C.RCR_MAN_TYP,
+               c_Ctf_man,        RCR_MAN_REC,             C.RCR_UNIQ_ID, c.rcr_purch_year
+            FROM	REC_CTF_RECO C	WHERE C.RCR_ID_COL = idCol;
+/*      ELSIF interChng = 'M' AND matchedFlag = 'U'  THEN
+	  		UPDATE REC_MDSONUS_RECO SET RMR_UNIQ_ID = uniqId
+			WHERE RMR_ID_COL = idCol;
+
+         INSERT INTO CHG_MDSONUS_RECON
+            (
+            CMR_ID_COL	,CMR_INST_CODE ,CMR_RECO_FLAG    ,CMR_MDSFILE_NAME ,CMR_PROCESSOR_TYPE ,CMR_PROCESSOR_ID--,CMR_RECON_DATE
+            ,CMR_TRAN_DATE,CMR_TRAN_TIME	,CMR_MDSPAN	  ,CMR_PROC_CODE ,CMR_AMT_SETTLE,CMR_MDSTRACE_NUMB
+            ,CMR_ACQ_INST_ID ,CMR_MDSTERM_ID
+            ,CMR_MDSRESP_CDE ,CMR_COMP_CODE ,CMR_CURR_CODE ,CMR_ACQ_CONV_RATE,CMR_COMP_TRANS_AMT
+            ,CMR_ATM_ACCESS_FEE,CMR_INTER_FEE,CMR_SWITCH_FEE,CMR_PROD_CODE,CMR_SEG3_CURR_CODE
+            ,CMR_SEG3_CONV_RATE ,CMR_SEG3_COND_CODE ,CMR_REF_NUMB,CMR_ISSU_INST
+            ,CMR_MDSFROM_ACCT ,CMR_MDSTO_ACCT ,CMR_MCC_CODE,CMR_ACQ_INST_NAME,CMR_ACQ_CITY
+            ,CMR_SWITCH_SERIAL_NUMB,CMR_MER_ID,CMR_BANKNET_REF_NUMB,CMR_ACQ_REF_NUMB
+            ,CMR_SETTLE_DATE,CMR_MAN_REC,CMR_TYPE_FLAG,CMR_SEQ_NUM,CMR_REC_TYP, CMR_UNIQ_ID
+            )
+         SELECT  --
+            idCol,--TO_CHAR(SYSDATE,'YYYY')|| SEQ_MDSONUS_RECON.NEXTVAL,
+            RMR_INST_CODE ,RMR_RECO_FLAG ,RMR_FILE_NAME  ,RMR_PROCESSOR_TYPE ,RMR_PROCESSOR_ID --,SYSDATE
+            ,RMR_TRAN_DATE ,RMR_TRAN_TIME ,RMR_PAN ,RMR_PROC_CODE ,RMR_AMT_SETTLE ,RMR_TRACE_NUMB
+            ,RMR_ACQ_INST_ID ,RMR_TERM_ID
+            ,RMR_RESP_CDE ,RMR_COMP_CODE ,RMR_CURR_CODE ,RMR_ACQ_CONV_RATE ,RMR_COMP_TRANS_AMT
+            ,RMR_ATM_ACCESS_FEE, RMR_INTER_FEE, RMR_SWITCH_FEE, RMR_PROD_CODE ,RMR_SEG3_CURR_CODE
+            ,RMR_SEG3_CONV_RATE ,RMR_SEG3_COND_CODE ,RMR_REF_NUMB, RMR_ISSU_INST
+            ,RMR_FROM_ACCT ,RMR_TO_ACCT ,RMR_MCC_CODE ,RMR_ACQ_INST_NAME ,RMR_ACQ_CITY
+            ,RMR_SWITCH_SERIAL_NUMB ,RMR_MER_ID ,RMR_BANKNET_REF_NUMB ,RMR_ACQ_REF_NUMB
+            ,RMR_SETTLE_DATE , RMR_MAN_REC ,C_MDSONUS_recon,RMR_SEQ_NUM,DECODE(SUBSTR(RMR_PROC_CODE,1,2),'00','02','20','02','01'),RMR_UNIQ_ID
+         FROM REC_MDSONUS_RECO WHERE RMR_ID_COL = idCol ;
+
+      END IF;
+
+      IF interChng = 'M' THEN
+    /*
+
+RIF_INST_CODE
+RIF_UNIQUE_ID
+RIF_INTER_CODE
+RIF_CARD_NO          - CMR_MDSPAN
+RIF_TXN_AMT          - CMR_AMT_SETTLE
+RIF_RSN_CODE         - reason code from action details
+RIF_EVENT_DAT        -
+RIF_CURR_CODE        - CMR_CURR_CODE / CMR_ORIG_CRNCY_CDE / curr code frm action details
+RIF_PROCESS          - CMR_PROC_CODE
+RIF_LAST_USER
+RIF_LAST_DATE
+RIF_PROCESS_DATE    - CMR_TRAN_DATE
+RIF_DEST_CODE       -
+RIF_CNTRY           -  CMR_TERM_CNTRY_X
+RIF_MSG_TEXT        -  message_text from action details
+RIF_SETTL_IND       -
+RIF_TRAN_IDENTIFIER - CMR_TRAN_CDE
+RIF_REIMB_ATTR
+RIF_FEECOLNCTRL_NUM
+RIF_FWDINST_ID
+RIF_FUNC_CODE       - function code from action details
+RIF_PROC_CODE       - CMR_PROC_CODE
+RIF_ORG_CODE        -
+RIF_FILE_NAME       - CMR_MDSFILE_NAME / CMR_ILFFILE_NAME
+
+
+    TXNTYPE
+PAN                 - CMR_MDSPAN
+PROCESSCODE_1       - CMR_PROC_CODE / CMR_EX92_PROCESSING_CODE
+PROCESSCODE_2       -
+PROCESSCODE_3       -
+TXNAMT              - CMR_AMT_SETTLE
+TXNDATE             - CMR_TRAN_DATE
+FUNCODE             - func code from action details
+REASONCODE          - reason code from action details
+MCC                 - CMR_MCC_CODE
+ARN                 - CMR_ACQ_REF_NUMB
+ACQINSTIDCODE       - CMR_ACQ_INST_ID
+FWDINSTID           -
+APPRVCDE            -
+TERMID              - CMR_TERM_ID
+MERID               - CMR_MER_ID
+MERNAME             -
+ADDDATA_0022        -
+ADDDATA_0023        -
+ADDDATA_0025        -
+ADDDATA_0137        -
+ADDDATA_0148        -
+ADDDATA_0158_1      -
+ADDDATA_0158_2      -
+ADDDATA_0158_3      -
+ADDDATA_0158_4      -
+ADDDATA_0158_5      -
+ADDDATA_0158_6      -
+ADDDATA_0165_1      -
+ADDDATA_0240        -
+TXNCRNCY            -
+MSGNUM              -
+MSGTEXT             -  message_text from action details
+DESTCODE
+ORGCODE
+SELECT 'ONE' INTO c_Ctf_man FROM DUAL;
+*/
+END IF;
+
+EXCEPTION
+        WHEN OTHERS THEN
+                ERRMSG:= 'Exep Main ......'||SQLERRM;
+END;
+/
+
+

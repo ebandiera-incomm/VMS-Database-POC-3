@@ -1,0 +1,15 @@
+CREATE OR REPLACE TRIGGER VMSCMS.TRIG_CMS_RATE_DEFINITION
+ BEFORE INSERT  ON VMSCMS.CMS_RATE_DEFINITION   FOR EACH ROW
+DECLARE
+v_seqno      NUMBER;
+BEGIN --Trigger body begins
+ IF INSERTING THEN
+                SELECT SEQ_CMS_RATE_DEFINITION.NEXTVAL
+                INTO   v_seqno
+                FROM dual;
+  :NEW.crd_unique_id := v_seqno;
+ END IF;
+END;
+/
+
+

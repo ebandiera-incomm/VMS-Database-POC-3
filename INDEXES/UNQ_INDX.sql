@@ -1,0 +1,18 @@
+CREATE UNIQUE INDEX VMSCMS.UNQ_INDX ON VMSCMS.CMS_APPL_PAN
+(CAP_ADDON_LINK)
+LOGGING
+TABLESPACE INCOMM
+PCTFREE    10
+INITRANS   2
+MAXTRANS   255
+STORAGE    (
+            INITIAL          384K
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           )
+NOPARALLEL;
+
+

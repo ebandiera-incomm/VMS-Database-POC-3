@@ -1,0 +1,1596 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.SP_TRANSACTION_REVERSAL_IVR(PRM_INST_CODE           IN NUMBER,
+											 PRM_MSG_TYP             IN VARCHAR2,
+											 PRM_RVSL_CODE           IN VARCHAR2,
+											 PRM_RRN                 IN VARCHAR2,
+											 PRM_DELV_CHNL           IN VARCHAR2,
+											 PRM_TERMINAL_ID         IN VARCHAR2,
+											 PRM_MERC_ID             IN VARCHAR2,
+											 PRM_TXN_CODE            IN VARCHAR2,
+											 PRM_TXN_TYPE            IN VARCHAR2,
+											 PRM_TXN_MODE            IN VARCHAR2,
+											 PRM_BUSINESS_DATE       IN VARCHAR2,
+											 PRM_BUSINESS_TIME       IN VARCHAR2,
+											 PRM_CARD_NO             IN VARCHAR2,
+											 PRM_ACTUAL_AMT          IN NUMBER,
+											 PRM_BANK_CODE           IN VARCHAR2,
+											 PRM_STAN                IN VARCHAR2,
+											 PRM_EXPRY_DATE          IN VARCHAR2,
+											 PRM_TOCUST_CARD_NO      IN VARCHAR2,
+											 PRM_TOCUST_EXPRY_DATE   IN VARCHAR2,
+											 PRM_ORGNL_BUSINESS_DATE IN VARCHAR2,
+											 PRM_ORGNL_BUSINESS_TIME IN VARCHAR2,
+											 PRM_ORGNL_RRN           IN VARCHAR2,
+											 PRM_MBR_NUMB            IN VARCHAR2,
+											 PRM_ORGNL_TERMINAL_ID   IN VARCHAR2,
+											 PRM_CURR_CODE           IN VARCHAR2,
+											 PRM_RESP_CDE            OUT VARCHAR2,
+											 PRM_RESP_MSG            OUT VARCHAR2,
+											 PRM_RESP_MSG_M24        OUT VARCHAR2) IS
+  V_ORGNL_DELIVERY_CHANNEL   TRANSACTIONLOG.DELIVERY_CHANNEL%TYPE;
+  V_ORGNL_RESP_CODE          TRANSACTIONLOG.RESPONSE_CODE%TYPE;
+  V_ORGNL_TERMINAL_ID        TRANSACTIONLOG.TERMINAL_ID%TYPE;
+  V_ORGNL_TXN_CODE           TRANSACTIONLOG.TXN_CODE%TYPE;
+  V_ORGNL_TXN_TYPE           TRANSACTIONLOG.TXN_TYPE%TYPE;
+  V_ORGNL_TXN_MODE           TRANSACTIONLOG.TXN_MODE%TYPE;
+  V_ORGNL_BUSINESS_DATE      TRANSACTIONLOG.BUSINESS_DATE%TYPE;
+  V_ORGNL_BUSINESS_TIME      TRANSACTIONLOG.BUSINESS_TIME%TYPE;
+  V_ORGNL_CUSTOMER_CARD_NO   TRANSACTIONLOG.CUSTOMER_CARD_NO%TYPE;
+  V_ORGNL_TOTAL_AMOUNT       TRANSACTIONLOG.AMOUNT%TYPE;
+  V_ACTUAL_AMT               NUMBER(9, 2);
+  V_REVERSAL_AMT             NUMBER(9, 2);
+  V_ORGNL_TXN_FEECODE        CMS_FEE_MAST.CFM_FEE_CODE%TYPE;
+  V_ORGNL_TXN_FEEATTACHTYPE  VARCHAR2(1);
+  V_ORGNL_TXN_TOTALFEE_AMT   TRANSACTIONLOG.TRANFEE_AMT%TYPE;
+  V_ORGNL_TXN_SERVICETAX_AMT TRANSACTIONLOG.SERVICETAX_AMT%TYPE;
+  V_ORGNL_TXN_CESS_AMT       TRANSACTIONLOG.CESS_AMT%TYPE;
+  V_ORGNL_TRANSACTION_TYPE   TRANSACTIONLOG.CR_DR_FLAG%TYPE;
+  V_ACTUAL_DISPATCHED_AMT    TRANSACTIONLOG.AMOUNT%TYPE;
+  V_RESP_CDE                 VARCHAR2(3);
+  V_FUNC_CODE                CMS_FUNC_MAST.CFM_FUNC_CODE%TYPE;
+  V_DR_CR_FLAG               TRANSACTIONLOG.CR_DR_FLAG%TYPE;
+  V_ORGNL_TRANDATE           DATE;
+  V_RVSL_TRANDATE            DATE;
+  V_ORGNL_TERMID             TRANSACTIONLOG.TERMINAL_ID%TYPE;
+  V_ORGNL_MCCCODE            TRANSACTIONLOG.MCCODE%TYPE;
+  V_ERRMSG                   VARCHAR2(300);
+  V_ACTUAL_FEECODE           TRANSACTIONLOG.FEECODE%TYPE;
+  V_ORGNL_TRANFEE_AMT        TRANSACTIONLOG.TRANFEE_AMT%TYPE;
+  V_ORGNL_SERVICETAX_AMT     TRANSACTIONLOG.SERVICETAX_AMT%TYPE;
+  V_ORGNL_CESS_AMT           TRANSACTIONLOG.CESS_AMT%TYPE;
+  V_ORGNL_CR_DR_FLAG         TRANSACTIONLOG.CR_DR_FLAG%TYPE;
+  V_ORGNL_TRANFEE_CR_ACCTNO  TRANSACTIONLOG.TRANFEE_CR_ACCTNO%TYPE;
+  V_ORGNL_TRANFEE_DR_ACCTNO  TRANSACTIONLOG.TRANFEE_DR_ACCTNO%TYPE;
+  V_ORGNL_ST_CALC_FLAG       TRANSACTIONLOG.TRAN_ST_CALC_FLAG%TYPE;
+  V_ORGNL_CESS_CALC_FLAG     TRANSACTIONLOG.TRAN_CESS_CALC_FLAG%TYPE;
+  V_ORGNL_ST_CR_ACCTNO       TRANSACTIONLOG.TRAN_ST_CR_ACCTNO%TYPE;
+  V_ORGNL_ST_DR_ACCTNO       TRANSACTIONLOG.TRAN_ST_DR_ACCTNO%TYPE;
+  V_ORGNL_CESS_CR_ACCTNO     TRANSACTIONLOG.TRAN_CESS_CR_ACCTNO%TYPE;
+  V_ORGNL_CESS_DR_ACCTNO     TRANSACTIONLOG.TRAN_CESS_DR_ACCTNO%TYPE;
+  V_PROD_CODE                CMS_APPL_PAN.CAP_PROD_CODE%TYPE;
+  V_CARD_TYPE                CMS_APPL_PAN.CAP_CARD_TYPE%TYPE;
+  V_GL_UPD_FLAG              TRANSACTIONLOG.GL_UPD_FLAG%TYPE;
+  V_TRAN_REVERSE_FLAG        TRANSACTIONLOG.TRAN_REVERSE_FLAG%TYPE;
+  V_SAVEPOINT                NUMBER DEFAULT 1;
+  V_CURR_CODE                TRANSACTIONLOG.CURRENCYCODE%TYPE;
+  V_AUTH_ID                  VARCHAR2(6);
+  V_TERMINAL_INDICATOR       PCMS_TERMINAL_MAST.PTM_TERMINAL_INDICATOR%TYPE;
+  V_CUTOFF_TIME              VARCHAR2(5);
+  V_BUSINESS_TIME            VARCHAR2(5);
+  EXP_RVSL_REJECT_RECORD EXCEPTION;
+  V_ATM_USAGEAMNT      CMS_TRANSLIMIT_CHECK.CTC_ATMUSAGE_AMT%TYPE;
+  V_POS_USAGEAMNT      CMS_TRANSLIMIT_CHECK.CTC_POSUSAGE_AMT%TYPE;
+  V_CARD_ACCT_NO       VARCHAR2(20);
+  V_TRAN_SYSDATE       DATE;
+  V_TRAN_CUTOFF        DATE;
+  V_HASH_PAN           CMS_APPL_PAN.CAP_PAN_CODE%TYPE;
+  V_ENCR_PAN           CMS_APPL_PAN.CAP_PAN_CODE_ENCR%TYPE;
+  V_TRAN_AMT           NUMBER;
+  V_DELCHANNEL_CODE    VARCHAR2(2);
+  V_CARD_CURR          VARCHAR2(5);
+  V_RRN_COUNT          NUMBER;
+  V_BASE_CURR          CMS_INST_PARAM.CIP_PARAM_VALUE%TYPE;
+  V_CURRCODE           VARCHAR2(3);
+  V_ACCT_BALANCE       NUMBER;
+  V_TRAN_DESC          CMS_TRANSACTION_MAST.CTM_TRAN_DESC%TYPE;
+  V_ATM_USAGELIMIT     CMS_TRANSLIMIT_CHECK.CTC_ATMUSAGE_LIMIT%TYPE;
+  V_POS_USAGELIMIT     CMS_TRANSLIMIT_CHECK.CTC_POSUSAGE_LIMIT%TYPE;
+  V_BUSINESS_DATE_TRAN DATE;
+  V_ORGNL_TXN_AMNT     TRANSACTIONLOG.TXN_AMOUNT%TYPE;
+  V_MMPOS_USAGEAMNT    CMS_TRANSLIMIT_CHECK.CTC_MMPOSUSAGE_AMT%TYPE;
+
+BEGIN
+  -- << MAIN BEGIN>>
+
+  PRM_RESP_CDE := '00';
+  PRM_RESP_MSG := 'OK';
+
+  SAVEPOINT V_SAVEPOINT;
+
+  --SN CREATE HASH PAN 
+  BEGIN
+    V_HASH_PAN := GETHASH(PRM_CARD_NO);
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_ERRMSG := 'Error while converting pan ' || SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  --EN CREATE HASH PAN
+
+  --SN create encr pan
+  BEGIN
+    V_ENCR_PAN := FN_EMAPS_MAIN(PRM_CARD_NO);
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_ERRMSG := 'Error while converting pan ' || SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  --EN create encr pan
+
+  BEGIN
+    V_ORGNL_TRANDATE := TO_DATE(SUBSTR(TRIM(PRM_ORGNL_BUSINESS_DATE), 1, 8),
+						  'yyyymmdd');
+    V_RVSL_TRANDATE  := TO_DATE(SUBSTR(TRIM(PRM_BUSINESS_DATE), 1, 8),
+						  'yyyymmdd');
+  
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '45';
+	 V_ERRMSG   := 'Problem while converting transaction date ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --Sn get date
+  BEGIN
+    V_ORGNL_TRANDATE := TO_DATE(SUBSTR(TRIM(PRM_ORGNL_BUSINESS_DATE), 1, 8) || ' ' ||
+						  SUBSTR(TRIM(PRM_ORGNL_BUSINESS_TIME), 1, 8),
+						  'yyyymmdd hh24:mi:ss');
+    V_RVSL_TRANDATE  := TO_DATE(SUBSTR(TRIM(PRM_BUSINESS_DATE), 1, 8) || ' ' ||
+						  SUBSTR(TRIM(PRM_BUSINESS_TIME), 1, 8),
+						  'yyyymmdd hh24:mi:ss');
+  
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '32';
+	 V_ERRMSG   := 'Problem while converting transaction Time ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  --En get date
+
+  --Sn Duplicate RRN Check
+
+  BEGIN
+  
+    SELECT COUNT(1)
+	 INTO V_RRN_COUNT
+	 FROM TRANSACTIONLOG
+	WHERE RRN = PRM_RRN AND BUSINESS_DATE = PRM_BUSINESS_DATE;
+  
+    IF V_RRN_COUNT > 0 THEN
+    
+	 V_RESP_CDE := '22'; -- Modified the response code variable name since this name only used to fetch the external response code. 20-June-2011
+	 V_ERRMSG   := 'Duplicate RRN on' || PRM_BUSINESS_DATE;
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    
+    END IF;
+  
+  END;
+
+  --En Duplicate RRN Check
+
+  --Sn generate auth id
+  BEGIN
+    SELECT LPAD(SEQ_AUTH_ID.NEXTVAL, 6, '0') INTO V_AUTH_ID FROM DUAL;
+  
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while generating authid ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --En generate auth id
+
+  --Select the Delivery Channel code of MM-POS
+  BEGIN
+  
+    SELECT CDM_CHANNEL_CODE
+	 INTO V_DELCHANNEL_CODE
+	 FROM CMS_DELCHANNEL_MAST
+	WHERE CDM_CHANNEL_DESC = 'IVR' AND CDM_INST_CODE = PRM_INST_CODE;
+    --IF the DeliveryChannel is MMPOS then the base currency will be the txn curr
+  
+    IF PRM_CURR_CODE IS NULL AND V_DELCHANNEL_CODE = PRM_DELV_CHNL THEN
+    
+	 BEGIN
+	   SELECT CIP_PARAM_VALUE
+		INTO V_BASE_CURR
+		FROM CMS_INST_PARAM
+	    WHERE CIP_INST_CODE = PRM_INST_CODE AND CIP_PARAM_KEY = 'CURRENCY';
+	 
+	   IF TRIM(V_BASE_CURR) IS NULL THEN
+		V_ERRMSG := 'Base currency cannot be null ';
+		RAISE EXP_RVSL_REJECT_RECORD;
+	   END IF;
+	 EXCEPTION
+	   WHEN NO_DATA_FOUND THEN
+		V_ERRMSG := 'Base currency is not defined for the institution ';
+		RAISE EXP_RVSL_REJECT_RECORD;
+	   WHEN OTHERS THEN
+		V_ERRMSG := 'Error while selecting bese currecy  ' ||
+				  SUBSTR(SQLERRM, 1, 200);
+		RAISE EXP_RVSL_REJECT_RECORD;
+	 END;
+    
+	 V_CURRCODE := V_BASE_CURR;
+    
+    ELSE
+	 V_CURRCODE := PRM_CURR_CODE;
+    END IF;
+  END;
+
+  --Sn check msg type
+  IF (V_DELCHANNEL_CODE <> PRM_DELV_CHNL) THEN
+  
+    IF (PRM_MSG_TYP NOT IN ('0400', '0410', '0420', '0430')) OR
+	  (PRM_RVSL_CODE = '00') THEN
+	 V_RESP_CDE := '12';
+	 V_ERRMSG   := 'Not a valid reversal request';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    END IF;
+  END IF;
+  --En check msg type
+
+  --Sn check orginal transaction    (-- Amount is missing in reversal request)
+  BEGIN
+    SELECT DELIVERY_CHANNEL,
+		 TERMINAL_ID,
+		 RESPONSE_CODE,
+		 TXN_CODE,
+		 TXN_TYPE,
+		 TXN_MODE,
+		 BUSINESS_DATE,
+		 BUSINESS_TIME,
+		 CUSTOMER_CARD_NO,
+		 AMOUNT, --Transaction amount
+		 FEECODE,
+		 FEEATTACHTYPE, -- card level / prod cattype level
+		 TXN_FEE, --Tranfee  Total    amount
+		 SERVICETAX_AMT, --Tran servicetax amount
+		 CESS_AMT, --Tran cess amount
+		 CR_DR_FLAG,
+		 TERMINAL_ID,
+		 MCCODE,
+		 FEECODE,
+		 TRANFEE_AMT,
+		 SERVICETAX_AMT,
+		 CESS_AMT,
+		 TRANFEE_CR_ACCTNO,
+		 TRANFEE_DR_ACCTNO,
+		 TRAN_ST_CALC_FLAG,
+		 TRAN_CESS_CALC_FLAG,
+		 TRAN_ST_CR_ACCTNO,
+		 TRAN_ST_DR_ACCTNO,
+		 TRAN_CESS_CR_ACCTNO,
+		 TRAN_CESS_DR_ACCTNO,
+		 CURRENCYCODE,
+		 TRAN_REVERSE_FLAG,
+		 GL_UPD_FLAG,
+		 TXN_AMOUNT
+    
+	 INTO V_ORGNL_DELIVERY_CHANNEL,
+		 V_ORGNL_TERMINAL_ID,
+		 V_ORGNL_RESP_CODE,
+		 V_ORGNL_TXN_CODE,
+		 V_ORGNL_TXN_TYPE,
+		 V_ORGNL_TXN_MODE,
+		 V_ORGNL_BUSINESS_DATE,
+		 V_ORGNL_BUSINESS_TIME,
+		 V_ORGNL_CUSTOMER_CARD_NO,
+		 V_ORGNL_TOTAL_AMOUNT,
+		 V_ORGNL_TXN_FEECODE,
+		 V_ORGNL_TXN_FEEATTACHTYPE,
+		 V_ORGNL_TXN_TOTALFEE_AMT,
+		 V_ORGNL_TXN_SERVICETAX_AMT,
+		 V_ORGNL_TXN_CESS_AMT,
+		 V_ORGNL_TRANSACTION_TYPE,
+		 V_ORGNL_TERMID,
+		 V_ORGNL_MCCCODE,
+		 V_ACTUAL_FEECODE,
+		 V_ORGNL_TRANFEE_AMT,
+		 V_ORGNL_SERVICETAX_AMT,
+		 V_ORGNL_CESS_AMT,
+		 V_ORGNL_TRANFEE_CR_ACCTNO,
+		 V_ORGNL_TRANFEE_DR_ACCTNO,
+		 V_ORGNL_ST_CALC_FLAG,
+		 V_ORGNL_CESS_CALC_FLAG,
+		 V_ORGNL_ST_CR_ACCTNO,
+		 V_ORGNL_ST_DR_ACCTNO,
+		 V_ORGNL_CESS_CR_ACCTNO,
+		 V_ORGNL_CESS_DR_ACCTNO,
+		 V_CURR_CODE,
+		 V_TRAN_REVERSE_FLAG,
+		 V_GL_UPD_FLAG,
+		 V_ORGNL_TXN_AMNT
+	 FROM TRANSACTIONLOG
+	WHERE RRN = PRM_ORGNL_RRN AND BUSINESS_DATE = PRM_ORGNL_BUSINESS_DATE AND
+		 BUSINESS_TIME = PRM_ORGNL_BUSINESS_TIME AND
+		 CUSTOMER_CARD_NO = V_HASH_PAN --prm_card_no
+		 AND INSTCODE = PRM_INST_CODE AND RESPONSE_CODE = '00'; -- Added to fetch only success original transaction. -- 20-June-2011
+    --AND      MCCODE            = prm_merc_id;
+    IF V_ORGNL_RESP_CODE <> '00' THEN
+	 V_RESP_CDE := '23';
+	 V_ERRMSG   := ' The original transaction was not successful';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    END IF;
+  
+    IF V_TRAN_REVERSE_FLAG = 'Y' THEN
+	 V_RESP_CDE := '52';
+	 V_ERRMSG   := 'The reversal already done for the orginal transaction';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    END IF;
+    IF PRM_DELV_CHNL = '07' THEN
+	 IF V_ORGNL_TOTAL_AMOUNT < PRM_ACTUAL_AMT THEN
+	   V_RESP_CDE := '37';
+	   V_ERRMSG   := 'Reversal Amount exceeds the Actual Amount';
+	   RAISE EXP_RVSL_REJECT_RECORD;
+	 END IF;
+    END IF;
+  
+  EXCEPTION
+    WHEN EXP_RVSL_REJECT_RECORD THEN
+	 RAISE;
+    WHEN NO_DATA_FOUND THEN
+	 V_RESP_CDE := '53';
+	 V_ERRMSG   := 'Matching transaction not found';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN TOO_MANY_ROWS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'More than one matching record found in the master';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while selecting master data' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  --En check orginal transaction  
+
+  ---Sn check card number
+  --IF v_orgnl_customer_card_no <> prm_card_no THEN
+  IF V_ORGNL_CUSTOMER_CARD_NO <> V_HASH_PAN THEN
+  
+    V_RESP_CDE := '21';
+    V_ERRMSG   := 'Customer card number is not matching in reversal and orginal transaction';
+    RAISE EXP_RVSL_REJECT_RECORD;
+  
+  END IF;
+  --En check card number    
+
+  --Sn find the converted tran amt
+  V_TRAN_AMT := PRM_ACTUAL_AMT;
+
+  IF (PRM_ACTUAL_AMT >= 0) THEN
+  
+    BEGIN
+	 SP_CONVERT_CURR(PRM_INST_CODE,
+				  V_CURRCODE,
+				  PRM_CARD_NO,
+				  PRM_ACTUAL_AMT,
+				  V_RVSL_TRANDATE,
+				  V_TRAN_AMT,
+				  V_CARD_CURR,
+				  V_ERRMSG);
+    
+	 IF V_ERRMSG <> 'OK' THEN
+	   V_RESP_CDE := '44';
+	   RAISE EXP_RVSL_REJECT_RECORD;
+	 END IF;
+    EXCEPTION
+	 WHEN EXP_RVSL_REJECT_RECORD THEN
+	   RAISE;
+	 WHEN OTHERS THEN
+	   V_RESP_CDE := '44'; -- Server Declined -220509
+	   V_ERRMSG   := 'Error from currency conversion ' ||
+				  SUBSTR(SQLERRM, 1, 200);
+	   RAISE EXP_RVSL_REJECT_RECORD;
+    END;
+  ELSE
+    -- If transaction Amount is zero - Invalid Amount -220509
+    V_RESP_CDE := '13';
+    V_ERRMSG   := 'INVALID AMOUNT';
+    RAISE EXP_RVSL_REJECT_RECORD;
+  END IF;
+
+  --En find the  converted tran amt
+
+  --Sn Check the Original and Reversal txn amount
+
+  IF PRM_ACTUAL_AMT > V_ORGNL_TXN_AMNT THEN
+  
+    V_RESP_CDE := '59';
+    V_ERRMSG   := 'Reversal amount exceeds the original transaction amount';
+    RAISE EXP_RVSL_REJECT_RECORD;
+  
+  END IF;
+  --En Check the Original and Reversal txn amount
+
+  --Sn check amount with orginal transaction
+  IF (V_TRAN_AMT IS NULL OR V_TRAN_AMT = 0) THEN
+  
+    V_ACTUAL_DISPATCHED_AMT := 0;
+  ELSE
+    V_ACTUAL_DISPATCHED_AMT := V_TRAN_AMT;
+  END IF;
+  --En check amount with orginal transaction
+  V_REVERSAL_AMT := V_ORGNL_TOTAL_AMOUNT - V_ACTUAL_DISPATCHED_AMT;
+
+  --Sn find the type of orginal txn (credit or debit)
+  BEGIN
+    SELECT CTM_CREDIT_DEBIT_FLAG, CTM_TRAN_DESC
+	 INTO V_DR_CR_FLAG, V_TRAN_DESC
+	 FROM CMS_TRANSACTION_MAST
+	WHERE CTM_TRAN_CODE = PRM_TXN_CODE AND
+		 CTM_DELIVERY_CHANNEL = PRM_DELV_CHNL AND
+		 CTM_INST_CODE = PRM_INST_CODE;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Transaction detail is not found in master for orginal txn code' ||
+				PRM_TXN_CODE || 'delivery channel ' || PRM_DELV_CHNL;
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Problem while selecting debit/credit flag ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --En find the type of orginal txn (credit or debit)
+  IF V_DR_CR_FLAG = 'NA' THEN
+    V_RESP_CDE := '21';
+    V_ERRMSG   := 'Not a valid orginal transaction for reversal';
+    RAISE EXP_RVSL_REJECT_RECORD;
+  END IF;
+  IF V_DR_CR_FLAG <> V_ORGNL_TRANSACTION_TYPE THEN
+    V_RESP_CDE := '21';
+    V_ERRMSG   := 'Orginal transaction type is not matching with actual transaction type';
+    RAISE EXP_RVSL_REJECT_RECORD;
+  END IF;
+  --Sn reverse the amount
+
+  --Sn find the orginal func code
+  BEGIN
+    SELECT CFM_FUNC_CODE
+	 INTO V_FUNC_CODE
+	 FROM CMS_FUNC_MAST
+	WHERE CFM_TXN_CODE = V_ORGNL_TXN_CODE AND
+		 CFM_TXN_MODE = V_ORGNL_TXN_MODE AND
+		 CFM_DELIVERY_CHANNEL = V_ORGNL_DELIVERY_CHANNEL AND
+		 CFM_INST_CODE = PRM_INST_CODE;
+    --TXN mode and delivery channel we need to attach
+    --bkz txn code may be same for all type of channels
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+	 V_RESP_CDE := '21'; --Ineligible Transaction
+	 V_ERRMSG   := 'Function code not defined for txn code ' ||
+				PRM_TXN_CODE;
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN TOO_MANY_ROWS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'More than one function defined for txn code ' ||
+				PRM_TXN_CODE;
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Problem while selecting function code from function mast  ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --Sn update the amount
+
+  ---Sn find cutoff time
+  BEGIN
+    SELECT CIP_PARAM_VALUE
+	 INTO V_CUTOFF_TIME
+	 FROM CMS_INST_PARAM
+	WHERE CIP_PARAM_KEY = 'CUTOFF' AND CIP_INST_CODE = PRM_INST_CODE;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+	 V_CUTOFF_TIME := 0;
+	 V_RESP_CDE    := '21';
+	 V_ERRMSG      := 'Cutoff time is not defined in the system';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while selecting cutoff  dtl  from system ';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  ---En find cutoff time
+
+  BEGIN
+    SELECT CAM_ACCT_NO
+	 INTO V_CARD_ACCT_NO
+	 FROM CMS_ACCT_MAST
+	WHERE CAM_ACCT_NO =
+		 (SELECT CAP_ACCT_NO
+		    FROM CMS_APPL_PAN
+		   WHERE CAP_PAN_CODE = V_HASH_PAN --prm_card_no 
+			    AND CAP_MBR_NUMB = PRM_MBR_NUMB AND
+			    CAP_INST_CODE = PRM_INST_CODE) AND
+		 CAM_INST_CODE = PRM_INST_CODE
+	  FOR UPDATE NOWAIT;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+	 V_RESP_CDE := '14'; --Ineligible Transaction
+	 V_ERRMSG   := 'Invalid Card ';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '12';
+	 V_ERRMSG   := 'Error while selecting data from card Master for card number ' ||
+				PRM_CARD_NO;
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --Sn reverse  the amount
+
+  BEGIN
+    SP_REVERSE_CARD_AMOUNT(PRM_INST_CODE,
+					  V_FUNC_CODE,
+					  PRM_RRN,
+					  PRM_DELV_CHNL,
+					  PRM_ORGNL_TERMINAL_ID,
+					  PRM_MERC_ID,
+					  PRM_TXN_CODE,
+					  V_RVSL_TRANDATE,
+					  PRM_TXN_MODE,
+					  PRM_CARD_NO,
+					  V_REVERSAL_AMT,
+					  PRM_ORGNL_RRN,
+					  V_CARD_ACCT_NO,
+					  V_RESP_CDE,
+					  V_ERRMSG);
+    IF V_RESP_CDE <> '00' OR V_ERRMSG <> 'OK' THEN
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    END IF;
+  
+  EXCEPTION
+    WHEN EXP_RVSL_REJECT_RECORD THEN
+	 RAISE;
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while reversing the amount ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  --En reverse the amount
+  --Sn reverse the fee
+
+  BEGIN
+    SP_REVERSE_FEE_AMOUNT(PRM_INST_CODE,
+					 PRM_RRN,
+					 PRM_DELV_CHNL,
+					 PRM_ORGNL_TERMINAL_ID,
+					 PRM_MERC_ID,
+					 PRM_TXN_CODE,
+					 V_RVSL_TRANDATE,
+					 PRM_TXN_MODE,
+					 V_ORGNL_TXN_TOTALFEE_AMT,
+					 PRM_CARD_NO,
+					 V_ACTUAL_FEECODE,
+					 V_ORGNL_TRANFEE_AMT,
+					 V_ORGNL_TRANFEE_CR_ACCTNO,
+					 V_ORGNL_TRANFEE_DR_ACCTNO,
+					 V_ORGNL_ST_CALC_FLAG,
+					 V_ORGNL_SERVICETAX_AMT,
+					 V_ORGNL_ST_CR_ACCTNO,
+					 V_ORGNL_ST_DR_ACCTNO,
+					 V_ORGNL_CESS_CALC_FLAG,
+					 V_ORGNL_CESS_AMT,
+					 V_ORGNL_CESS_CR_ACCTNO,
+					 V_ORGNL_CESS_DR_ACCTNO,
+					 PRM_ORGNL_RRN,
+					 V_CARD_ACCT_NO,
+					 V_RESP_CDE,
+					 V_ERRMSG);
+  
+    IF V_RESP_CDE <> '00' OR V_ERRMSG <> 'OK' THEN
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    END IF;
+  
+  EXCEPTION
+    WHEN EXP_RVSL_REJECT_RECORD THEN
+	 RAISE;
+    
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while reversing the fee amount ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --En reverse the fee
+  --Sn reverse the GL entries
+
+  --Sn get the product code
+  BEGIN
+  
+    SELECT CAP_PROD_CODE, CAP_CARD_TYPE
+	 INTO V_PROD_CODE, V_CARD_TYPE
+	 FROM CMS_APPL_PAN
+	WHERE CAP_INST_CODE = PRM_INST_CODE AND CAP_PAN_CODE = V_HASH_PAN; --prm_card_no;
+  
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := PRM_CARD_NO || ' Card no not in master';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while retriving card detail ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    
+  END;
+  IF V_GL_UPD_FLAG = 'Y' THEN
+  
+    --Sn find business date
+    --  v_business_date
+    -- v_cutoff_time
+    V_BUSINESS_TIME := TO_CHAR(V_RVSL_TRANDATE, 'HH24:MI');
+    IF V_BUSINESS_TIME > V_CUTOFF_TIME THEN
+	 V_RVSL_TRANDATE := TRUNC(V_RVSL_TRANDATE) + 1;
+    ELSE
+	 V_RVSL_TRANDATE := TRUNC(V_RVSL_TRANDATE);
+    END IF;
+    --En find businesses date
+  
+    SP_REVERSE_GL_ENTRIES(PRM_INST_CODE,
+					 V_RVSL_TRANDATE,
+					 V_PROD_CODE,
+					 V_CARD_TYPE,
+					 V_REVERSAL_AMT,
+					 V_FUNC_CODE,
+					 PRM_TXN_CODE,
+					 V_DR_CR_FLAG,
+					 PRM_CARD_NO,
+					 V_ACTUAL_FEECODE,
+					 V_ORGNL_TXN_TOTALFEE_AMT,
+					 V_ORGNL_TRANFEE_CR_ACCTNO,
+					 V_ORGNL_TRANFEE_DR_ACCTNO,
+					 V_CARD_ACCT_NO,
+					 PRM_RVSL_CODE,
+					 PRM_MSG_TYP,
+					 PRM_DELV_CHNL,
+					 V_RESP_CDE,
+					 V_GL_UPD_FLAG,
+					 V_ERRMSG);
+    IF V_GL_UPD_FLAG <> 'Y' THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := V_ERRMSG || 'Error while retriving gl detail ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+    END IF;
+  
+  END IF;
+  --En reverse the GL entries
+  --Sn create a entry for successful
+  BEGIN
+  
+    IF V_ERRMSG = 'OK' THEN
+    
+	 INSERT INTO CMS_TRANSACTION_LOG_DTL
+	   (CTD_DELIVERY_CHANNEL,
+	    CTD_TXN_CODE,
+	    CTD_TXN_TYPE,
+	    CTD_MSG_TYPE,
+	    CTD_TXN_MODE,
+	    CTD_BUSINESS_DATE,
+	    CTD_BUSINESS_TIME,
+	    CTD_CUSTOMER_CARD_NO,
+	    CTD_TXN_AMOUNT,
+	    CTD_TXN_CURR,
+	    CTD_ACTUAL_AMOUNT,
+	    CTD_BILL_AMOUNT,
+	    CTD_BILL_CURR,
+	    CTD_PROCESS_FLAG,
+	    CTD_PROCESS_MSG,
+	    CTD_RRN,
+	    CTD_SYSTEM_TRACE_AUDIT_NO,
+	    CTD_INST_CODE,
+	    CTD_CUSTOMER_CARD_NO_ENCR)
+	 VALUES
+	   (PRM_DELV_CHNL,
+	    PRM_TXN_CODE,
+	    PRM_TXN_TYPE,
+	    PRM_MSG_TYP,
+	    PRM_TXN_MODE,
+	    PRM_BUSINESS_DATE,
+	    PRM_BUSINESS_TIME,
+	    V_HASH_PAN,
+	    PRM_ACTUAL_AMT,
+	    V_CURRCODE,
+	    V_TRAN_AMT,
+	    V_REVERSAL_AMT,
+	    V_CARD_CURR,
+	    'Y',
+	    'Successful',
+	    PRM_RRN,
+	    PRM_STAN,
+	    PRM_INST_CODE,
+	    V_ENCR_PAN);
+    END IF;
+  
+    --Added the 5 empty values for CMS_TRANSACTION_LOG_DTL in cms
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_ERRMSG   := 'Problem while selecting data from response master ' ||
+				SUBSTR(SQLERRM, 1, 300);
+	 V_RESP_CDE := '21';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --En create a entry for successful
+
+  --Sn generate response code
+
+  V_RESP_CDE := '1';
+  BEGIN
+    SELECT CMS_ISO_RESPCDE
+	 INTO PRM_RESP_CDE
+	 FROM CMS_RESPONSE_MAST
+	WHERE CMS_INST_CODE = PRM_INST_CODE AND
+		 CMS_DELIVERY_CHANNEL = PRM_DELV_CHNL AND
+		 CMS_RESPONSE_ID = TO_NUMBER(V_RESP_CDE);
+  EXCEPTION
+    WHEN OTHERS THEN
+	 V_ERRMSG   := 'Problem while selecting data from response master for respose code' ||
+				V_RESP_CDE || SUBSTR(SQLERRM, 1, 300);
+	 V_RESP_CDE := '69';
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+
+  --En generate response code
+
+  -- Sn create a entry in GL
+  BEGIN
+    INSERT INTO TRANSACTIONLOG
+	 (MSGTYPE,
+	  RRN,
+	  DELIVERY_CHANNEL,
+	  TERMINAL_ID,
+	  DATE_TIME,
+	  TXN_CODE,
+	  TXN_TYPE,
+	  TXN_MODE,
+	  TXN_STATUS,
+	  RESPONSE_CODE,
+	  BUSINESS_DATE,
+	  BUSINESS_TIME,
+	  CUSTOMER_CARD_NO,
+	  TOPUP_CARD_NO,
+	  TOPUP_ACCT_NO,
+	  TOPUP_ACCT_TYPE,
+	  BANK_CODE,
+	  TOTAL_AMOUNT,
+	  RULE_INDICATOR,
+	  RULEGROUPID,
+	  MCCODE,
+	  CURRENCYCODE,
+	  --  ADDCHARGE
+	  --  ,
+	  PRODUCTID,
+	  CATEGORYID,
+	  TXN_FEE,
+	  TIPS,
+	  DECLINE_RULEID,
+	  ATM_NAME_LOCATION,
+	  AUTH_ID,
+	  TRANS_DESC,
+	  AMOUNT,
+	  PREAUTHAMOUNT,
+	  PARTIALAMOUNT,
+	  MCCODEGROUPID,
+	  CURRENCYCODEGROUPID,
+	  TRANSCODEGROUPID,
+	  RULES,
+	  PREAUTH_DATE,
+	  GL_UPD_FLAG,
+	  SYSTEM_TRACE_AUDIT_NO,
+	  INSTCODE,
+	  FEECODE,
+	  FEEATTACHTYPE,
+	  TRAN_REVERSE_FLAG,
+	  CUSTOMER_CARD_NO_ENCR,
+	  TOPUP_CARD_NO_ENCR,
+	  TXN_AMOUNT)
+    VALUES
+	 (PRM_MSG_TYP,
+	  PRM_RRN,
+	  PRM_DELV_CHNL,
+	  PRM_TERMINAL_ID,
+	  V_RVSL_TRANDATE,
+	  PRM_TXN_CODE,
+	  PRM_TXN_TYPE,
+	  PRM_TXN_MODE,
+	  DECODE(PRM_RESP_CDE, '00', 'C', 'F'),
+	  PRM_RESP_CDE,
+	  PRM_BUSINESS_DATE,
+	  SUBSTR(PRM_BUSINESS_TIME, 1, 6),
+	  --prm_card_no
+	  V_HASH_PAN,
+	  NULL,
+	  --prm_topup_cardno,
+	  NULL, --prm_topup_acctno    ,
+	  NULL, --prm_topup_accttype,
+	  PRM_INST_CODE,
+	  --                          prm_actual_amt
+	  TRIM(TO_CHAR(V_REVERSAL_AMT, '999999999999.99')) -- reversal amount will be passed in the table as the same is used in the recon report.
+	 ,
+	  NULL,
+	  NULL,
+	  PRM_MERC_ID,
+	  V_CURR_CODE,
+	  --  prm_add_charge,
+	  V_PROD_CODE,
+	  V_CARD_TYPE,
+	  0,
+	  0,
+	  NULL,
+	  NULL,
+	  V_AUTH_ID,
+	  V_TRAN_DESC,
+	  --                          0,
+	  TRIM(TO_CHAR(V_REVERSAL_AMT, '999999999999.99')), -- reversal amount will be passed in the table as the same is used in the recon report.
+	  NULL, --- PRE AUTH AMOUNT
+	  NULL, -- Partial amount (will be given for partial txn)
+	  NULL,
+	  NULL,
+	  NULL,
+	  NULL,
+	  NULL,
+	  'Y',
+	  PRM_STAN,
+	  PRM_INST_CODE,
+	  NULL,
+	  NULL,
+	  
+	  'N',
+	  V_ENCR_PAN,
+	  NULL,
+	  PRM_ACTUAL_AMT);
+  
+    --prm_resp_cde := '00';
+    --Sn update reverse flag
+    BEGIN
+	 UPDATE TRANSACTIONLOG
+	    SET TRAN_REVERSE_FLAG = 'Y'
+	  WHERE RRN = PRM_ORGNL_RRN AND
+		   BUSINESS_DATE = PRM_ORGNL_BUSINESS_DATE AND
+		   BUSINESS_TIME = PRM_ORGNL_BUSINESS_TIME AND
+		   CUSTOMER_CARD_NO = V_HASH_PAN --prm_card_no;
+		   AND INSTCODE = PRM_INST_CODE;
+    
+	 IF SQL%ROWCOUNT = 0 THEN
+	 
+	   V_RESP_CDE := '21';
+	   V_ERRMSG   := 'Reverse flag is not updated ';
+	   RAISE EXP_RVSL_REJECT_RECORD;
+	 END IF;
+    EXCEPTION
+	 WHEN EXP_RVSL_REJECT_RECORD THEN
+	   RAISE;
+	 WHEN OTHERS THEN
+	   V_RESP_CDE := '21';
+	   V_ERRMSG   := 'Error while updating gl flag ' ||
+				  SUBSTR(SQLERRM, 1, 200);
+	   RAISE EXP_RVSL_REJECT_RECORD;
+	 
+    END;
+    --En update reverse flag
+  
+    BEGIN
+    
+	 SELECT CTC_ATMUSAGE_AMT,
+		   CTC_POSUSAGE_AMT,
+		   CTC_BUSINESS_DATE,
+		   CTC_MMPOSUSAGE_AMT
+	   INTO V_ATM_USAGEAMNT,
+		   V_POS_USAGEAMNT,
+		   V_BUSINESS_DATE_TRAN,
+		   V_MMPOS_USAGEAMNT
+	   FROM CMS_TRANSLIMIT_CHECK
+	  WHERE CTC_INST_CODE = PRM_INST_CODE AND CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+		   AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+    EXCEPTION
+	 WHEN NO_DATA_FOUND THEN
+	   V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+				  V_RESP_CDE || SUBSTR(SQLERRM, 1, 300);
+	   V_RESP_CDE := '21';
+	   RAISE EXP_RVSL_REJECT_RECORD;
+    END;
+  
+    BEGIN
+    
+	 --Sn Limit and amount check for ATM
+	 IF PRM_DELV_CHNL = '01' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   ELSE
+		IF PRM_ORGNL_BUSINESS_DATE = PRM_BUSINESS_DATE THEN
+		
+		  IF V_REVERSAL_AMT IS NULL THEN
+		    V_ATM_USAGEAMNT := V_ATM_USAGEAMNT;
+		  ELSE
+		    V_ATM_USAGEAMNT := V_ATM_USAGEAMNT -
+						   TRIM(TO_CHAR(V_REVERSAL_AMT,
+									 '999999999999.99'));
+		  END IF;
+		
+		  UPDATE CMS_TRANSLIMIT_CHECK
+			SET CTC_POSUSAGE_AMT = V_ATM_USAGEAMNT
+		   WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			    CTC_PAN_CODE = V_HASH_PAN --CARD NO
+			    AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+		END IF;
+	   END IF;
+	 END IF;
+	 --En Limit and amount check for ATM
+    
+	 --Sn Limit and amount check for POS
+    
+	 IF PRM_DELV_CHNL = '02' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   ELSE
+		IF PRM_ORGNL_BUSINESS_DATE = PRM_BUSINESS_DATE THEN
+		
+		  IF V_REVERSAL_AMT IS NULL THEN
+		    V_POS_USAGEAMNT := V_POS_USAGEAMNT;
+		  
+		  ELSE
+		    V_POS_USAGEAMNT := V_POS_USAGEAMNT -
+						   TRIM(TO_CHAR(V_REVERSAL_AMT,
+									 '999999999999.99'));
+		  END IF;
+		
+		  UPDATE CMS_TRANSLIMIT_CHECK
+			SET CTC_POSUSAGE_AMT = V_POS_USAGEAMNT
+		   WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			    CTC_PAN_CODE = V_HASH_PAN --CARD NO
+			    AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+		END IF;
+	   END IF;
+	 END IF;
+    
+	 --En Limit and amount check for POS      
+    
+	 --Sn Limit and amount check for MMPOS
+    
+	 IF PRM_DELV_CHNL = '04' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   ELSE
+		IF PRM_ORGNL_BUSINESS_DATE = PRM_BUSINESS_DATE THEN
+		
+		  IF V_REVERSAL_AMT IS NULL THEN
+		    V_MMPOS_USAGEAMNT := V_MMPOS_USAGEAMNT;
+		  
+		  ELSE
+		  
+		    IF V_DR_CR_FLAG = 'CR' THEN
+		    
+			 V_MMPOS_USAGEAMNT := V_MMPOS_USAGEAMNT;
+		    ELSE
+			 V_MMPOS_USAGEAMNT := V_MMPOS_USAGEAMNT -
+							  TRIM(TO_CHAR(V_REVERSAL_AMT,
+										'999999999999.99'));
+		    END IF;
+		  
+		  END IF;
+		
+		  UPDATE CMS_TRANSLIMIT_CHECK
+			SET CTC_POSUSAGE_AMT = V_MMPOS_USAGEAMNT
+		   WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			    CTC_PAN_CODE = V_HASH_PAN --CARD NO
+			    AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+		END IF;
+	   END IF;
+	 END IF;
+    
+	 --En Limit and amount check for MMPOS       
+    
+    END;
+  
+    IF V_ERRMSG = 'OK' THEN
+    
+	 --Sn find prod code and card type and available balance for the card number
+	 BEGIN
+	   SELECT CAM_ACCT_BAL
+		INTO V_ACCT_BALANCE
+		FROM CMS_ACCT_MAST
+	    WHERE CAM_ACCT_NO =
+			(SELECT CAP_ACCT_NO
+			   FROM CMS_APPL_PAN
+			  WHERE CAP_PAN_CODE = V_HASH_PAN --prm_card_no 
+				   AND CAP_MBR_NUMB = PRM_MBR_NUMB AND
+				   CAP_INST_CODE = PRM_INST_CODE) AND
+			CAM_INST_CODE = PRM_INST_CODE
+		 FOR UPDATE NOWAIT;
+	 EXCEPTION
+	   WHEN NO_DATA_FOUND THEN
+		V_RESP_CDE := '14'; --Ineligible Transaction
+		V_ERRMSG   := 'Invalid Card ';
+		RAISE EXP_RVSL_REJECT_RECORD;
+	   WHEN OTHERS THEN
+		V_RESP_CDE := '12';
+		V_ERRMSG   := 'Error while selecting data from card Master for card number ' ||
+				    SQLERRM;
+		RAISE EXP_RVSL_REJECT_RECORD;
+	 END;
+    
+	 --En find prod code and card type for the card number  
+	 PRM_RESP_MSG := TO_CHAR(V_ACCT_BALANCE);
+    
+    ELSE
+    
+	 PRM_RESP_MSG := V_ERRMSG;
+    
+    END IF;
+  
+    -- prm_resp_msg := 'OK';
+  
+  EXCEPTION
+    WHEN EXP_RVSL_REJECT_RECORD THEN
+	 RAISE;
+    
+    WHEN OTHERS THEN
+	 V_RESP_CDE := '21';
+	 V_ERRMSG   := 'Error while inserting records in transaction log ' ||
+				SUBSTR(SQLERRM, 1, 200);
+	 RAISE EXP_RVSL_REJECT_RECORD;
+  END;
+  --En  create a entry in GL
+
+EXCEPTION
+  -- << MAIN EXCEPTION>>
+  WHEN EXP_RVSL_REJECT_RECORD THEN
+    ROLLBACK TO V_SAVEPOINT;
+  
+    BEGIN
+	 SELECT CMS_ISO_RESPCDE
+	   INTO PRM_RESP_CDE
+	   FROM CMS_RESPONSE_MAST
+	  WHERE CMS_INST_CODE = PRM_INST_CODE AND
+		   CMS_DELIVERY_CHANNEL = PRM_DELV_CHNL AND
+		   CMS_RESPONSE_ID = TO_NUMBER(V_RESP_CDE);
+	 PRM_RESP_MSG := V_ERRMSG;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   PRM_RESP_MSG := 'Problem while selecting data from response master ' ||
+				    V_RESP_CDE || SUBSTR(SQLERRM, 1, 300);
+	   PRM_RESP_CDE := '69';
+	   -- RETURN;
+    END;
+  
+    BEGIN
+    
+	 SELECT CTC_ATMUSAGE_AMT,
+		   CTC_POSUSAGE_AMT,
+		   CTC_BUSINESS_DATE,
+		   CTC_MMPOSUSAGE_AMT
+	   INTO V_ATM_USAGEAMNT,
+		   V_POS_USAGEAMNT,
+		   V_BUSINESS_DATE_TRAN,
+		   V_MMPOS_USAGEAMNT
+	   FROM CMS_TRANSLIMIT_CHECK
+	  WHERE CTC_INST_CODE = PRM_INST_CODE AND CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+		   AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+    EXCEPTION
+	 WHEN NO_DATA_FOUND THEN
+	   V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+				  V_RESP_CDE || SUBSTR(SQLERRM, 1, 300);
+	   V_RESP_CDE := '21';
+	   RAISE EXP_RVSL_REJECT_RECORD;
+    END;
+  
+    BEGIN
+    
+	 --Sn limit update for ATM
+    
+	 IF PRM_DELV_CHNL = '01' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   END IF;
+	 END IF;
+    
+	 --Sn limit update for POS
+    
+	 IF PRM_DELV_CHNL = '02' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   END IF;
+	 END IF;
+    
+	 --Sn limit update for MMPOS
+	 IF PRM_DELV_CHNL = '04' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   END IF;
+	 END IF;
+    END;
+  
+    --Sn create a entry in txn log
+    BEGIN
+	 INSERT INTO TRANSACTIONLOG
+	   (MSGTYPE,
+	    RRN,
+	    DELIVERY_CHANNEL,
+	    TERMINAL_ID,
+	    DATE_TIME,
+	    TXN_CODE,
+	    TXN_TYPE,
+	    TXN_MODE,
+	    TXN_STATUS,
+	    RESPONSE_CODE,
+	    BUSINESS_DATE,
+	    BUSINESS_TIME,
+	    CUSTOMER_CARD_NO,
+	    TOPUP_CARD_NO,
+	    TOPUP_ACCT_NO,
+	    TOPUP_ACCT_TYPE,
+	    BANK_CODE,
+	    TOTAL_AMOUNT,
+	    CURRENCYCODE,
+	    ADDCHARGE,
+	    CATEGORYID,
+	    ATM_NAME_LOCATION,
+	    AUTH_ID,
+	    AMOUNT,
+	    PREAUTHAMOUNT,
+	    PARTIALAMOUNT,
+	    INSTCODE,
+	    CUSTOMER_CARD_NO_ENCR,
+	    TOPUP_CARD_NO_ENCR,
+	    TXN_AMOUNT)
+	 VALUES
+	   (PRM_MSG_TYP,
+	    PRM_RRN,
+	    PRM_DELV_CHNL,
+	    PRM_TERMINAL_ID,
+	    V_RVSL_TRANDATE,
+	    PRM_TXN_CODE,
+	    PRM_TXN_TYPE,
+	    PRM_TXN_MODE,
+	    DECODE(PRM_RESP_CDE, '00', 'C', 'F'),
+	    PRM_RESP_CDE,
+	    PRM_BUSINESS_DATE,
+	    SUBSTR(PRM_BUSINESS_TIME, 1, 10),
+	    V_HASH_PAN,
+	    NULL,
+	    NULL,
+	    NULL,
+	    PRM_INST_CODE,
+	    TRIM(TO_CHAR(V_TRAN_AMT, '999999999999.99')),
+	    V_CURRCODE,
+	    NULL,
+	    NULL,
+	    PRM_TERMINAL_ID,
+	    V_AUTH_ID,
+	    TRIM(TO_CHAR(V_TRAN_AMT, '999999999999.99')),
+	    NULL,
+	    NULL,
+	    PRM_INST_CODE,
+	    V_ENCR_PAN,
+	    V_ENCR_PAN,
+	    PRM_ACTUAL_AMT);
+    
+    EXCEPTION
+	 WHEN OTHERS THEN
+	 
+	   PRM_RESP_CDE := '89';
+	   PRM_RESP_MSG := 'Problem while inserting data into transaction log  dtl' ||
+				    SUBSTR(SQLERRM, 1, 300);
+    END;
+    --En create a entry in txn log
+  
+    BEGIN
+	 INSERT INTO CMS_TRANSACTION_LOG_DTL
+	   (CTD_DELIVERY_CHANNEL,
+	    CTD_TXN_CODE,
+	    CTD_TXN_TYPE,
+	    CTD_MSG_TYPE,
+	    CTD_TXN_MODE,
+	    CTD_BUSINESS_DATE,
+	    CTD_BUSINESS_TIME,
+	    CTD_CUSTOMER_CARD_NO,
+	    CTD_TXN_AMOUNT,
+	    CTD_TXN_CURR,
+	    CTD_ACTUAL_AMOUNT,
+	    CTD_FEE_AMOUNT,
+	    CTD_WAIVER_AMOUNT,
+	    CTD_SERVICETAX_AMOUNT,
+	    CTD_CESS_AMOUNT,
+	    CTD_BILL_AMOUNT,
+	    CTD_BILL_CURR,
+	    CTD_PROCESS_FLAG,
+	    CTD_PROCESS_MSG,
+	    CTD_RRN,
+	    CTD_SYSTEM_TRACE_AUDIT_NO,
+	    CTD_INST_CODE,
+	    CTD_CUSTOMER_CARD_NO_ENCR)
+	 VALUES
+	   (PRM_DELV_CHNL,
+	    PRM_TXN_CODE,
+	    PRM_TXN_TYPE,
+	    PRM_MSG_TYP,
+	    PRM_TXN_MODE,
+	    PRM_BUSINESS_DATE,
+	    PRM_BUSINESS_TIME,
+	    V_HASH_PAN,
+	    PRM_ACTUAL_AMT,
+	    V_CURRCODE,
+	    V_TRAN_AMT,
+	    NULL,
+	    NULL,
+	    NULL,
+	    NULL,
+	    PRM_ACTUAL_AMT,
+	    V_CARD_CURR,
+	    'E',
+	    V_ERRMSG,
+	    PRM_RRN,
+	    PRM_STAN,
+	    PRM_INST_CODE,
+	    V_ENCR_PAN);
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   PRM_RESP_MSG := 'Problem while inserting data into transaction log  dtl' ||
+				    SUBSTR(SQLERRM, 1, 300);
+	   PRM_RESP_CDE := '69'; -- Server Decline Response 220509
+	   ROLLBACK;
+	   RETURN;
+    END;
+  
+    PRM_RESP_MSG := V_ERRMSG;
+  WHEN OTHERS THEN
+    ROLLBACK TO V_SAVEPOINT;
+    BEGIN
+	 SELECT CMS_ISO_RESPCDE
+	   INTO PRM_RESP_CDE
+	   FROM CMS_RESPONSE_MAST
+	  WHERE CMS_INST_CODE = PRM_INST_CODE AND
+		   CMS_DELIVERY_CHANNEL = PRM_DELV_CHNL AND
+		   CMS_RESPONSE_ID = TO_NUMBER(V_RESP_CDE);
+	 PRM_RESP_MSG := V_ERRMSG;
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   PRM_RESP_MSG := 'Problem while selecting data from response master ' ||
+				    V_RESP_CDE || SUBSTR(SQLERRM, 1, 300);
+	   PRM_RESP_CDE := '69';
+	   --  RETURN;
+    END;
+  
+    BEGIN
+    
+	 SELECT CTC_ATMUSAGE_AMT,
+		   CTC_POSUSAGE_AMT,
+		   CTC_BUSINESS_DATE,
+		   CTC_MMPOSUSAGE_AMT
+	   INTO V_ATM_USAGEAMNT,
+		   V_POS_USAGEAMNT,
+		   V_BUSINESS_DATE_TRAN,
+		   V_MMPOS_USAGEAMNT
+	   FROM CMS_TRANSLIMIT_CHECK
+	  WHERE CTC_INST_CODE = PRM_INST_CODE AND CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+		   AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+    EXCEPTION
+	 WHEN NO_DATA_FOUND THEN
+	   V_ERRMSG   := 'Cannot get the Transaction Limit Details of the Card' ||
+				  V_RESP_CDE || SUBSTR(SQLERRM, 1, 300);
+	   V_RESP_CDE := '21';
+	   RAISE EXP_RVSL_REJECT_RECORD;
+    END;
+  
+    BEGIN
+    
+	 --Sn limit update for ATM
+    
+	 IF PRM_DELV_CHNL = '01' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   END IF;
+	 END IF;
+    
+	 --Sn limit update for POS
+    
+	 IF PRM_DELV_CHNL = '02' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   END IF;
+	 END IF;
+    
+	 --Sn limit update for MMPOS
+	 IF PRM_DELV_CHNL = '04' THEN
+	 
+	   IF V_RVSL_TRANDATE > V_BUSINESS_DATE_TRAN THEN
+	   
+		UPDATE CMS_TRANSLIMIT_CHECK
+		   SET CTC_POSUSAGE_AMT       = 0,
+			  CTC_POSUSAGE_LIMIT     = 0,
+			  CTC_ATMUSAGE_AMT       = 0,
+			  CTC_ATMUSAGE_LIMIT     = 0,
+			  CTC_BUSINESS_DATE      = TO_DATE(PRM_BUSINESS_DATE ||
+										'23:59:59',
+										'yymmdd' || 'hh24:mi:ss'),
+			  CTC_PREAUTHUSAGE_LIMIT = 0,
+			  CTC_MMPOSUSAGE_AMT     = 0,
+			  CTC_MMPOSUSAGE_LIMIT   = 0
+		 WHERE CTC_INST_CODE = PRM_INST_CODE AND
+			  CTC_PAN_CODE = V_HASH_PAN -- prm_card_no
+			  AND CTC_MBR_NUMB = PRM_MBR_NUMB;
+	   END IF;
+	 END IF;
+    END;
+  
+    --Sn create a entry in txn log
+    BEGIN
+	 INSERT INTO TRANSACTIONLOG
+	   (MSGTYPE,
+	    RRN,
+	    DELIVERY_CHANNEL,
+	    TERMINAL_ID,
+	    DATE_TIME,
+	    TXN_CODE,
+	    TXN_TYPE,
+	    TXN_MODE,
+	    TXN_STATUS,
+	    RESPONSE_CODE,
+	    BUSINESS_DATE,
+	    BUSINESS_TIME,
+	    CUSTOMER_CARD_NO,
+	    TOPUP_CARD_NO,
+	    TOPUP_ACCT_NO,
+	    TOPUP_ACCT_TYPE,
+	    BANK_CODE,
+	    TOTAL_AMOUNT,
+	    CURRENCYCODE,
+	    ADDCHARGE,
+	    CATEGORYID,
+	    ATM_NAME_LOCATION,
+	    AUTH_ID,
+	    AMOUNT,
+	    PREAUTHAMOUNT,
+	    PARTIALAMOUNT,
+	    INSTCODE,
+	    CUSTOMER_CARD_NO_ENCR,
+	    TOPUP_CARD_NO_ENCR,
+	    TXN_AMOUNT)
+	 VALUES
+	   (PRM_MSG_TYP,
+	    PRM_RRN,
+	    PRM_DELV_CHNL,
+	    PRM_TERMINAL_ID,
+	    V_RVSL_TRANDATE,
+	    PRM_TXN_CODE,
+	    PRM_TXN_TYPE,
+	    PRM_TXN_MODE,
+	    DECODE(PRM_RESP_CDE, '00', 'C', 'F'),
+	    PRM_RESP_CDE,
+	    PRM_BUSINESS_DATE,
+	    SUBSTR(PRM_BUSINESS_TIME, 1, 10),
+	    V_HASH_PAN,
+	    NULL,
+	    NULL,
+	    NULL,
+	    PRM_INST_CODE,
+	    TRIM(TO_CHAR(V_TRAN_AMT, '999999999999.99')),
+	    V_CURRCODE,
+	    NULL,
+	    NULL,
+	    PRM_TERMINAL_ID,
+	    V_AUTH_ID,
+	    TRIM(TO_CHAR(V_TRAN_AMT, '999999999999.99')),
+	    NULL,
+	    NULL,
+	    PRM_INST_CODE,
+	    V_ENCR_PAN,
+	    V_ENCR_PAN,
+	    PRM_ACTUAL_AMT);
+    
+    EXCEPTION
+	 WHEN OTHERS THEN
+	 
+	   PRM_RESP_CDE := '89';
+	   PRM_RESP_MSG := 'Problem while inserting data into transaction log  dtl' ||
+				    SUBSTR(SQLERRM, 1, 300);
+    END;
+    --En create a entry in txn log
+  
+    BEGIN
+	 INSERT INTO CMS_TRANSACTION_LOG_DTL
+	   (CTD_DELIVERY_CHANNEL,
+	    CTD_TXN_CODE,
+	    CTD_TXN_TYPE,
+	    CTD_MSG_TYPE,
+	    CTD_TXN_MODE,
+	    CTD_BUSINESS_DATE,
+	    CTD_BUSINESS_TIME,
+	    CTD_CUSTOMER_CARD_NO,
+	    CTD_TXN_AMOUNT,
+	    CTD_TXN_CURR,
+	    CTD_ACTUAL_AMOUNT,
+	    CTD_FEE_AMOUNT,
+	    CTD_WAIVER_AMOUNT,
+	    CTD_SERVICETAX_AMOUNT,
+	    CTD_CESS_AMOUNT,
+	    CTD_BILL_AMOUNT,
+	    CTD_BILL_CURR,
+	    CTD_PROCESS_FLAG,
+	    CTD_PROCESS_MSG,
+	    CTD_RRN,
+	    CTD_SYSTEM_TRACE_AUDIT_NO,
+	    CTD_INST_CODE,
+	    CTD_CUSTOMER_CARD_NO_ENCR)
+	 VALUES
+	   (PRM_DELV_CHNL,
+	    PRM_TXN_CODE,
+	    PRM_TXN_TYPE,
+	    PRM_MSG_TYP,
+	    PRM_TXN_MODE,
+	    PRM_BUSINESS_DATE,
+	    PRM_BUSINESS_TIME,
+	    V_HASH_PAN,
+	    PRM_ACTUAL_AMT,
+	    V_CURRCODE,
+	    V_TRAN_AMT,
+	    NULL,
+	    NULL,
+	    NULL,
+	    NULL,
+	    PRM_ACTUAL_AMT,
+	    V_CARD_CURR,
+	    'E',
+	    V_ERRMSG,
+	    PRM_RRN,
+	    PRM_STAN,
+	    PRM_INST_CODE,
+	    V_ENCR_PAN);
+    EXCEPTION
+	 WHEN OTHERS THEN
+	   PRM_RESP_MSG := 'Problem while inserting data into transaction log  dtl' ||
+				    SUBSTR(SQLERRM, 1, 300);
+	   PRM_RESP_CDE := '69'; -- Server Decline Response 220509
+	   ROLLBACK;
+	   RETURN;
+    END;
+    -- prm_resp_msg := v_errmsg;
+    PRM_RESP_MSG_M24 := V_ERRMSG;
+END; -- << MAIN END;>>
+/
+
+

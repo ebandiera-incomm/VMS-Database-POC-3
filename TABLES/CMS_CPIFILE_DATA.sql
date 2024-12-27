@@ -1,0 +1,1 @@
+alter table vmscms.CMS_CPIFILE_DATA modify ccd_file_name varchar2(200);

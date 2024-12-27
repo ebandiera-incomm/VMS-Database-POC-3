@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_preauth_transaction ADD(cpt_complfree_flag  VARCHAR2(20));

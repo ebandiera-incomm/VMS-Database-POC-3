@@ -1,0 +1,1 @@
+alter table vmscms.VMS_AUTHCOMPL_STAN add vas_rrn_starts_with varchar2(5);

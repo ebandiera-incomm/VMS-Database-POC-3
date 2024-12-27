@@ -1,0 +1,1 @@
+CREATE INDEX vmscms.indx_sweep_flag ON vmscms.cms_prod_cattype (cpc_sweep_flag) online;

@@ -1,0 +1,18 @@
+CREATE INDEX VMSCMS.INDX_CUST_ACCT ON VMSCMS.CMS_CUST_ACCT
+(CCA_ACCT_ID)
+LOGGING
+TABLESPACE INCOMM
+PCTFREE    10
+INITRANS   2
+MAXTRANS   255
+STORAGE    (
+            INITIAL          2M
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           )
+NOPARALLEL;
+
+

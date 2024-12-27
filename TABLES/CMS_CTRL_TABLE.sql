@@ -1,0 +1,1 @@
+alter table VMSCMS.cms_ctrl_table modify CCT_CTRL_DESC varchar2(100);

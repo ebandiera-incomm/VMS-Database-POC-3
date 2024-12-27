@@ -1,0 +1,23 @@
+CREATE TABLE VMSCMS.PCMS_EXCHANGERATE_MAST
+(
+  PEM_CURR_CODE     VARCHAR2(4 BYTE)            NOT NULL,
+  PEM_SELLING_RATE  NUMBER(8,4)                 NOT NULL,
+  PEM_BUYING_RATE   NUMBER(8,4)                 NOT NULL,
+  PEM_MARKUP_PERC   NUMBER(4,2)                 NOT NULL,
+  PEM_NUMOF_DECI    NUMBER(1)                   NOT NULL,
+  PEM_ASOF_DATE     DATE                        NOT NULL,
+  PEM_INS_DATE      DATE                        NOT NULL,
+  PEM_INS_USER      NUMBER(5)                   NOT NULL,
+  PEM_LUPD_DATE     DATE                        NOT NULL,
+  PEM_LUPD_USER     NUMBER(5)                   NOT NULL,
+  PEM_INST_CODE     NUMBER(10)
+)
+TABLESPACE CMS_MAST
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+

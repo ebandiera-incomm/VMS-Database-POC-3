@@ -1,0 +1,1 @@
+CREATE INDEX vmscms.IDX_CCI_ID_NUMBER ON vmscms.cms_caf_info_entry (cci_id_number) TABLESPACE cms_big_idx ONLINE;

@@ -1,0 +1,251 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.ZBDDD_DELETE_CHECK (
+    P_SERIALNUMBER_IN    IN     VARCHAR2 DEFAULT NULL,
+    L_PARENT_SERIALNO    IN     VARCHAR2 DEFAULT NULL,
+    P_PROXYNUMBER_IN     IN     VARCHAR2 DEFAULT NULL,
+    P_PAN_IN             IN     VARCHAR2 DEFAULT NULL,
+    P_ONLINEUSERID_IN    IN     VARCHAR2 DEFAULT NULL,
+    P_ACCOUNTNUMBER_IN   IN     VARCHAR2 DEFAULT NULL,
+    P_FIRSTNAME_IN       IN     VARCHAR2 DEFAULT NULL,
+    P_LASTNAME_IN        IN     VARCHAR2 DEFAULT NULL,
+    P_IDENTITY_ID_IN     IN     VARCHAR2 DEFAULT NULL,
+    P_IDENTITY_TYPE_IN   IN     VARCHAR2 DEFAULT NULL,
+    P_ADDRESS_IN         IN     VARCHAR2 DEFAULT NULL,
+    P_EMAIL_IN           IN     VARCHAR2 DEFAULT NULL,
+    V_DELETE_DATE           OUT DATE,
+    P_ERR_MSG_OUT           OUT VARCHAR2)
+AS
+    V_CUST_CODE    NUMBER;
+    L_CTR1         NUMBER;
+    L_CTR2         NUMBER;
+    V_FIRST_NAME   VARCHAR2 (50);
+    V_LAST_NAME    VARCHAR2 (50);
+    V_ACCT_NO      VARCHAR2 (20);
+    V_D_SQL        VARCHAR2 (4000);
+    V_REC_CHECK    NUMBER;
+    G_API_NAME     VARCHAR2 (30) := 'SEARCH CUSTOMERS';
+
+    L_TIMETAKEN    NUMBER;
+BEGIN
+    IF P_SERIALNUMBER_IN IS NOT NULL
+    THEN
+        --p_serialnumber_in
+
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_APPL_PAN
+         WHERE (   CAP_SERIAL_NUMBER = P_SERIALNUMBER_IN
+                OR CAP_PANMAST_PARAM2 IN
+                       (L_PARENT_SERIALNO, P_SERIALNUMBER_IN));
+    --p_proxynumber_in
+
+    ELSIF P_PROXYNUMBER_IN IS NOT NULL
+    THEN
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_APPL_PAN
+         WHERE CAP_PROXY_NUMBER = P_PROXYNUMBER_IN;
+    ELSIF P_PAN_IN IS NOT NULL
+    THEN
+        --P_PAN_IN
+
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_APPL_PAN
+         WHERE CAP_PAN_CODE = VMSCMS.GETHASH (P_PAN_IN);
+    ELSIF P_ONLINEUSERID_IN IS NOT NULL
+    THEN
+        --USERID
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_CUST_MAST  CCM
+               JOIN VMSCMS.CMS_APPL_PAN CAP
+                   ON     CCM.CCM_INST_CODE = CAP.CAP_INST_CODE
+                      AND CCM.CCM_CUST_CODE = CAP.CAP_CUST_CODE
+         WHERE CCM.CCM_USER_NAME = P_ONLINEUSERID_IN;
+    ELSIF P_EMAIL_IN IS NOT NULL
+    THEN
+        --EMAIL
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_CUST_MAST  CCM
+               JOIN VMSCMS.CMS_APPL_PAN CAP
+                   ON     CCM.CCM_INST_CODE = CAP.CAP_INST_CODE
+                      AND CCM.CCM_CUST_CODE = CAP.CAP_CUST_CODE
+         WHERE CCM.CCM_EMAIL_ONE = P_EMAIL_IN;
+    ELSIF P_ADDRESS_IN IS NOT NULL
+    THEN
+        --ADDRESS
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_ADDR_MAST  CAM
+               JOIN VMSCMS.CMS_APPL_PAN CAP
+                   ON     CAM.CAM_INST_CODE = CAP.CAP_INST_CODE
+                      AND CAM.CAM_CUST_CODE = CAP.CAP_CUST_CODE
+         WHERE UPPER (CAM.CAM_ADD_ONE || CAM.CAM_ADD_TWO) =
+               UPPER (P_ADDRESS_IN);
+    ELSIF P_IDENTITY_TYPE_IN IN ('SSN', 'SIN', 'DL')
+    THEN
+        --SSN/SIN/DL
+
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_CUST_MAST  CCM
+               JOIN VMSCMS.CMS_APPL_PAN CAP
+                   ON     CCM.CCM_INST_CODE = CAP.CAP_INST_CODE
+                      AND CCM.CCM_CUST_CODE = CAP.CAP_CUST_CODE
+         WHERE     CCM.CCM_SSN_ENCR = VMSCMS.FN_EMAPS_MAIN (P_IDENTITY_ID_IN)
+               AND UPPER (CCM.CCM_ID_TYPE) = UPPER (P_IDENTITY_TYPE_IN);
+    ELSIF P_ACCOUNTNUMBER_IN IS NOT NULL
+    THEN
+        --ACCOUNTNUMBER
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_APPL_PAN CAP
+         WHERE CAP_ACCT_NO = P_ACCOUNTNUMBER_IN;
+    ELSIF P_FIRSTNAME_IN IS NOT NULL AND P_LASTNAME_IN IS NOT NULL
+    THEN
+        --FRSTNAME/LASTNAME
+        L_CTR1 := REGEXP_INSTR (P_FIRSTNAME_IN, '[^a-z^A-Z^0-9]');
+        L_CTR2 := REGEXP_INSTR (P_LASTNAME_IN, '[^a-z^A-Z^0-9]');
+
+        IF L_CTR1 > 0
+        THEN
+            V_FIRST_NAME := SUBSTR (P_FIRSTNAME_IN, 1, (L_CTR1 - 1)) || '%';
+        ELSE
+            V_FIRST_NAME := P_FIRSTNAME_IN;
+        END IF;
+
+        IF L_CTR2 > 0
+        THEN
+            V_LAST_NAME := SUBSTR (P_LASTNAME_IN, 1, (L_CTR2 - 1)) || '%';
+        ELSE
+            V_LAST_NAME := P_LASTNAME_IN;
+        END IF;
+
+        SELECT COUNT (*)
+          INTO V_REC_CHECK
+          FROM VMSCMS.CMS_CUST_MAST  CCM
+               JOIN VMSCMS.CMS_APPL_PAN CAP
+                   ON     CCM.CCM_INST_CODE = CAP.CAP_INST_CODE
+                      AND CCM.CCM_CUST_CODE = CAP.CAP_CUST_CODE
+         WHERE     UPPER (CCM_FIRST_NAME) LIKE UPPER (V_FIRST_NAME)
+               AND UPPER (CCM.CCM_LAST_NAME) LIKE UPPER (V_LAST_NAME);
+    END IF;
+
+    IF V_REC_CHECK = 0
+    THEN
+        V_D_SQL :=
+            'SELECT MAX(ZBDDD.INS_DATE) FROM VMSCMS.ZBDDD_CARD_INFO ZBDDD WHERE ';
+
+        CASE
+            WHEN P_SERIALNUMBER_IN IS NOT NULL
+            THEN
+                V_D_SQL :=
+                    V_D_SQL || 'ZBDDD.SERIAL_NUMBER = :p_serialnumber_in';
+            WHEN P_PROXYNUMBER_IN IS NOT NULL
+            THEN
+                V_D_SQL :=
+                    V_D_SQL || 'ZBDDD.PROXY_NUMBER = :p_proxynumber_in';
+            WHEN P_PAN_IN IS NOT NULL AND LENGTH (P_PAN_IN) > 4
+            THEN
+                V_D_SQL :=
+                    V_D_SQL || 'ZBDDD.PAN_CODE = vmscms.gethash(:p_pan_in)';
+            WHEN P_ONLINEUSERID_IN IS NOT NULL
+            THEN
+                V_D_SQL := V_D_SQL || 'EXISTS
+           (SELECT CCM.CCM_CUST_CODE
+              FROM VMSCMS.CMS_CUST_MAST CCM
+             WHERE     ZBDDD.CUST_CODE = CCM.CCM_CUST_CODE
+                   AND CCM.CCM_USER_NAME = :P_ONLINEUSERID_IN)';
+            WHEN P_FIRSTNAME_IN IS NOT NULL AND P_LASTNAME_IN IS NOT NULL
+            THEN
+                V_D_SQL :=
+                       V_D_SQL
+                    || 'EXISTS
+           (SELECT CCM.CCM_CUST_CODE
+              FROM VMSCMS.CMS_CUST_MAST CCM
+             WHERE     ZBDDD.CUST_CODE = CCM.CCM_CUST_CODE
+                   AND     UPPER (CCM.CCM_FIRST_NAME) LIKE UPPER (:V_FIRST_NAME)
+                   AND UPPER (CCM_LAST_NAME) LIKE UPPER (:V_LAST_NAME))';
+            WHEN P_EMAIL_IN IS NOT NULL
+            THEN
+                V_D_SQL := V_D_SQL || 'EXISTS
+           (SELECT CCM.CCM_CUST_CODE
+              FROM VMSCMS.CMS_CUST_MAST CCM
+             WHERE     ZBDDD.CUST_CODE = CCM.CCM_CUST_CODE
+             AND CCM.CCM_EMAIL_ONE = :P_EMAIL_IN)';
+            WHEN     P_IDENTITY_ID_IN IS NOT NULL
+                 AND P_IDENTITY_TYPE_IN IS NOT NULL
+            THEN
+                V_D_SQL := V_D_SQL || 'EXISTS
+           (SELECT CCM.CCM_CUST_CODE
+              FROM VMSCMS.CMS_CUST_MAST CCM
+             WHERE     ZBDDD.CUST_CODE = CCM.CCM_CUST_CODE
+             CCM.CCM_SSN_ENCR = VMSCMS.FN_EMAPS_MAIN (:P_IDENTITY_ID_IN)
+               AND UPPER (CCM.CCM_ID_TYPE) = UPPER (:P_IDENTITY_TYPE_IN))';
+            WHEN P_ADDRESS_IN IS NOT NULL
+            THEN
+                V_D_SQL := V_D_SQL || 'EXISTS
+           (SELECT CAM.CAM_CUST_CODE
+              FROM VMSCMS.CMS_ADDR_MAST CAM
+             WHERE     ZBDDD.CUST_CODE = CAM.CAM_CUST_CODE
+             AND UPPER (CAM.CAM_ADD_ONE || CAM.CAM_ADD_TWO) =
+               UPPER (:P_ADDRESS_IN))';
+            WHEN P_ACCOUNTNUMBER_IN IS NOT NULL
+            THEN
+                V_D_SQL := V_D_SQL || 'ACCT_NO = :P_ACCOUNTNUMBER_IN';
+        END CASE;
+
+        IF P_SERIALNUMBER_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_SERIALNUMBER_IN;
+        ELSIF P_PROXYNUMBER_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_PROXYNUMBER_IN;
+        ELSIF P_PAN_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_PAN_IN;
+        ELSIF P_ONLINEUSERID_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_ONLINEUSERID_IN;
+        ELSIF P_FIRSTNAME_IN IS NOT NULL AND P_LASTNAME_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_FIRSTNAME_IN, P_LASTNAME_IN;
+        ELSIF P_EMAIL_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_EMAIL_IN;
+        ELSIF P_IDENTITY_ID_IN IS NOT NULL AND P_IDENTITY_TYPE_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_IDENTITY_ID_IN, P_IDENTITY_TYPE_IN;
+        ELSIF P_ADDRESS_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_ADDRESS_IN;
+        ELSIF P_ACCOUNTNUMBER_IN IS NOT NULL
+        THEN
+            EXECUTE IMMEDIATE V_D_SQL
+                INTO V_DELETE_DATE
+                USING P_ACCOUNTNUMBER_IN;
+        END IF;
+    END IF;
+EXCEPTION
+    WHEN OTHERS
+    THEN
+        P_ERR_MSG_OUT := 'Main excp-' || SUBSTR (SQLERRM, 1, 300);
+END;
+/

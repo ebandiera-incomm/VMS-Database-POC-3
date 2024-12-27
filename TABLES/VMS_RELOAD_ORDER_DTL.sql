@@ -1,0 +1,2 @@
+create table vmscms.VMS_RELOAD_ORDER_DTL(vrd_channel_code varchar2(3),vrd_reload_id varchar2(10),vrd_merchant_id varchar2(20),vrd_postback_response varchar2(100),
+vrd_postback_url varchar2(100),vrd_ins_user number(5,0),vrd_inst_date date);

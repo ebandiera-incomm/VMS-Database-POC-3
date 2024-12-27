@@ -1,0 +1,18 @@
+CREATE UNIQUE INDEX VMSCMS.STORE_ID_PK ON VMSCMS.CMS_STORE_ID
+(CSI_STORE_ID)
+LOGGING
+TABLESPACE INCOMM
+PCTFREE    10
+INITRANS   2
+MAXTRANS   255
+STORAGE    (
+            INITIAL          64K
+            NEXT             1M
+            MINEXTENTS       1
+            MAXEXTENTS       UNLIMITED
+            PCTINCREASE      0
+            BUFFER_POOL      DEFAULT
+           )
+NOPARALLEL;
+
+

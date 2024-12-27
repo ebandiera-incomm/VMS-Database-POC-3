@@ -1,0 +1,1 @@
+alter table vmscms.cms_bin_param modify cbp_param_value varchar2(500);

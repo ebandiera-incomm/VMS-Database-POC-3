@@ -1,0 +1,1 @@
+create index vmscms.IDX_VTI_TOKEN_PAN on vmscms.VMS_TOKEN_INFO(VTI_TOKEN_PAN) online;

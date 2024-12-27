@@ -1,0 +1,37 @@
+CREATE OR REPLACE FUNCTION vmscms_history.fn_kek_decr wrapped 
+a000000
+1
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+abcd
+8
+37b 23f
+0ndDDieeAVTJB959MH24zJ63h/swgxBeACCGfHTNq7We8MurBClJyx/1yN5h81YMIvTyHqFq
+DUye9X21LPKt8orf6SrMd+8sLKFVWx0a2PNkuwjNQ2IineS1FjYsB45u89opcNVVATM6Dj6s
+RmJKSjm9TLBfmxoOaT/1bzoUuoD9TSiOAL71JIu2Q4Ej7YdIZeU1uGLL4HvcIhibwEo1HdEl
+UO+aI82MZUYofRiE25ra0U25zzZ40pEKRhfvhyp9KHXgLVRuqjVSKpeiRpLSJpwuirqleE7F
+tw6a5Rri0NomquF3zg5H505N81rOabC8iTdgMmGv/A9LRlkeVJDYKhvcM23Asd9/1Qb+bwVD
+/J8ycxdYQ4Jo3BBH/xIX2i0eekvoYnKFRWsG9hjJFKFj/ra20Lr1FtNEW8cL/c/TvwbgXkcK
+ApaUWtK2zMlyg64x1QSTB09U7okyJOUgAMEI/we35H7jm1qY7LuFJydgHNcpIsDUd0IczEQl
+XhT9KB6T3NuterUHQqwuN66pEJIi6TwLRmwrDR+Fp61IF0p4NfZKgteLiraejLEp
+
+/
+grant EXECUTE on VMSCMS_HISTORY.FN_KEK_DECR to APP_FSAPI_USER;
+grant EXECUTE on VMSCMS_HISTORY.FN_KEK_DECR to APP_ESB_USER;
+grant EXECUTE on VMSCMS_HISTORY.FN_KEK_DECR to APP_VMS_USER;
+grant EXECUTE on VMSCMS_HISTORY.FN_KEK_DECR to VMSCMS;
+/
+show error;
+/

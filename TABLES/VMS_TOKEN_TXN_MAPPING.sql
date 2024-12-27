@@ -1,0 +1,12 @@
+CREATE TABLE VMSCMS.VMS_TOKEN_TXN_MAPPING
+(
+  VTT_INST_CODE        NUMBER(3)                NOT NULL,
+  VTT_DELIVERY_CHANNEL VARCHAR2(2)         NOT NULL,
+  VTT_TRAN_CODE        VARCHAR2(2)         NOT NULL,
+  VTT_TOKEN_NEW_STATUS      VARCHAR2(2)         NOT NULL,
+  VTT_TOKEN_STATUS  VARCHAR2(2)         NOT NULL,
+  VTT_INS_USER         NUMBER(5)                NOT NULL,
+  VTT_INS_DATE         DATE                     NOT NULL,
+  VTT_LUPD_USER        NUMBER(5)                NOT NULL,
+  VTT_LUPD_DATE        DATE                     NOT NULL
+) ;

@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_prodcattype_fees_hist MODIFY cpf_func_code VARCHAR2(10 BYTE) NULL;

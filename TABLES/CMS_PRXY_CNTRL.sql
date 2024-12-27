@@ -1,0 +1,19 @@
+CREATE TABLE VMSCMS.CMS_PRXY_CNTRL
+(
+  CPC_INST_CODE     NUMBER(10)                  NOT NULL,
+  CPC_PRXY_KEY      VARCHAR2(10 BYTE)           NOT NULL,
+  CPC_PRXY_CNTRLNO  NUMBER(19)                  NOT NULL,
+  CPC_LUPD_DATE     DATE                        NOT NULL,
+  CPC_LUPD_USER     NUMBER(10)                  NOT NULL,
+  CPC_INS_DATE      DATE                        NOT NULL,
+  CPC_INS_USER      NUMBER(10)                  NOT NULL
+)
+TABLESPACE CMS_BIG_IDX
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+

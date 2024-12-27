@@ -1,0 +1,17 @@
+CREATE OR REPLACE FUNCTION VMSCMS.FN_SRC_DST(DESTAMT IN VARCHAR2,
+           SRCAMT IN VARCHAR2) RETURN VARCHAR2 AS
+           FLAG VARCHAR2(1);
+BEGIN
+ IF  (abs((to_number(DESTAMT) - to_number(SRCAMT)))  >= (0.5*(to_number(SRCAMT)))) THEN
+
+      FLAG := 'Y';
+  ELSE
+   FLAG := 'N';
+  END IF;
+
+RETURN FLAG;
+END;
+/
+
+
+show error

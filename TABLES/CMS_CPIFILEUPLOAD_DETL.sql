@@ -1,0 +1,1 @@
+alter table vmscms.CMS_CPIFILEUPLOAD_DETL modify CCD_FILE_NAME varchar2(200);

@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.cms_merinv_prodcat ADD  cmp_card_id VARCHAR2(10);

@@ -1,0 +1,46 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.Sp_Employee_Ins(Errmsg OUT VARCHAR2)
+AS
+CURSOR C1 IS SELECT * FROM PCMS_EMPLOYEE_MASTER_TEMP;
+BEGIN
+FOR X IN C1
+ LOOP
+ Errmsg := 'OK';
+ BEGIN
+  INSERT INTO PCMS_EMPLOYEE_MASTER
+  (
+  PEM_EMP_ID	       ,
+  PEM_INST_CODE        ,
+  PEM_ORGANIZATION_CODE,
+  PEM_EMP_CODE         ,
+  PEM_EMP_NAME         ,
+  PEM_CUST_CODE      ,
+  PEM_UPD_USER         ,
+  PEM_UPD_DATE         ,
+  PEM_INS_USER         ,
+  PEM_INS_DATE
+  )
+  VALUES
+  (
+  SEQ_EMP_ID.NEXTVAL     ,
+  X.PEM_INST_CODE        ,
+  X.PEM_ORGANIZATION_CODE,
+  X.PEM_EMP_CODE         ,
+  X.PEM_EMP_NAME         ,
+X.  PEM_CUST_CODE      ,
+  X.PEM_UPD_USER         ,
+  X.PEM_UPD_DATE         ,
+  X.PEM_INS_USER         ,
+  X.PEM_INS_DATE
+  );
+ EXCEPTION
+  WHEN OTHERS THEN
+  Errmsg := 'Exception --'||SQLERRM;
+ END;
+ END LOOP;
+EXCEPTION
+ WHEN OTHERS THEN
+ Errmsg := 'Main excp --'||SQLERRM;
+END;
+/
+SHOW ERRORS
+

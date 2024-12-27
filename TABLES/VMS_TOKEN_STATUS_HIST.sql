@@ -1,0 +1,1 @@
+CREATE TABLE vmscms.vms_token_status_hist  (    vts_card_no        VARCHAR2 (90),    vts_token_no       VARCHAR2 (19),    vts_token_old_stat VARCHAR2 (2),    vts_token_new_stat VARCHAR2 (2),    vts_changed_date TIMESTAMP  )  TABLESPACE CMS_BIG_TXN; 

@@ -1,0 +1,36 @@
+CREATE TABLE VMSCMS.PREPAID_ACCT_INFO
+(
+  CAM_INST_CODE       NUMBER(3)                 NOT NULL,
+  CAM_ACCT_ID         NUMBER(10)                NOT NULL,
+  CAM_ACCT_NO         VARCHAR2(20 BYTE),
+  CAM_HOLD_COUNT      NUMBER(3)                 NOT NULL,
+  CAM_CURR_BRAN       VARCHAR2(6 BYTE)          NOT NULL,
+  CAM_BILL_ADDR       NUMBER(10),
+  CAM_TYPE_CODE       NUMBER(3)                 NOT NULL,
+  CAM_STAT_CODE       NUMBER(3)                 NOT NULL,
+  CAM_STAT_CODE_B24   CHAR(1 BYTE),
+  CAM_CURR_LOYL       NUMBER(5)                 DEFAULT 0                     NOT NULL,
+  CAM_UNCLAIMED_LOYL  NUMBER(5)                 DEFAULT 0                     NOT NULL,
+  CAM_INS_USER        NUMBER(5)                 NOT NULL,
+  CAM_INS_DATE        DATE                      NOT NULL,
+  CAM_LUPD_USER       NUMBER(5)                 NOT NULL,
+  CAM_LUPD_DATE       DATE                      NOT NULL,
+  CAM_ACCT_BAL        NUMBER(20,3)              DEFAULT 0                     NOT NULL,
+  PREAUTHAMOUNT       VARCHAR2(12 BYTE),
+  PREAUTH_DATE        DATE
+)
+TABLESPACE CMS_BIG_TXN
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+
+ALTER TABLE VMSCMS.PREPAID_ACCT_INFO ADD (
+  CONSTRAINT PK_AID_ACCT_INFO1
+ PRIMARY KEY
+ (CAM_ACCT_NO))
+/
+

@@ -1,0 +1,1 @@
+create index vmscms.indx_phone_one on vmscms.CMS_ADDR_MAST(cam_phone_one) online;

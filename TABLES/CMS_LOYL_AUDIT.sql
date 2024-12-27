@@ -1,0 +1,25 @@
+CREATE TABLE VMSCMS.CMS_LOYL_AUDIT
+(
+  CLA_INST_CODE      NUMBER(3)                  NOT NULL,
+  CLA_PAN_CODE       VARCHAR2(90 BYTE)          NOT NULL,
+  CLA_MBR_NUMB       VARCHAR2(3 BYTE)           NOT NULL,
+  CLA_ACCT_NO        VARCHAR2(20 BYTE)          NOT NULL,
+  CLA_LOYL_IND       VARCHAR2(1 BYTE)           NOT NULL,
+  CLA_LOYL_POINTS    NUMBER(5)                  NOT NULL,
+  CLA_OPRN_DATE      DATE                       NOT NULL,
+  CLA_OPRN_DESC      VARCHAR2(50 BYTE),
+  CLA_INS_USER       NUMBER                     NOT NULL,
+  CLA_INS_DATE       DATE                       NOT NULL,
+  CLA_LUPD_USER      NUMBER                     NOT NULL,
+  CLA_LUPD_DATE      DATE                       NOT NULL,
+  CLA_PAN_CODE_ENCR  RAW(100)
+)
+TABLESPACE CMS_BIG_TXN
+LOGGING 
+NOCOMPRESS 
+NOCACHE
+NOPARALLEL
+MONITORING
+/
+
+

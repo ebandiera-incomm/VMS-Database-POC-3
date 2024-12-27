@@ -1,0 +1,1 @@
+ALTER TABLE vmscms.transactionlog MODIFY REMARK VARCHAR2(1000);

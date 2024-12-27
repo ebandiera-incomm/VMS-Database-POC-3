@@ -1,0 +1,20 @@
+CREATE OR REPLACE PROCEDURE VMSCMS.ID_COL AS
+CURSOR CPD IS SELECT ROWID , ROWNUM FROM CMS_PAN_TRANS WHERE CPT_ID_COL = 0;
+v_seq_pan_trans  NUMBER(10);
+BEGIN
+   FOR X IN CPD LOOP
+	  --DBMS_OUTPUT.PUT_LINE(X.ROWNUM);
+		SELECT seq_pan_trans.NEXTVAL
+ INTO v_seq_pan_trans
+ FROM dual;
+           UPDATE CMS_PAN_TRANS SET CPT_ID_COL= v_seq_pan_trans
+           WHERE ROWID = X.ROWID;
+           IF MOD(X.ROWNUM,1000) = 0 THEN
+                   COMMIT;
+           END IF;
+   END LOOP;
+END ID_COL;
+/
+
+
+show error
